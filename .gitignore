@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+
+# Bench artefacts
+bench/results-*.json
+bench/seq-*.log
+bench/seq-*.json
+bench/finale-*.log
+bench/b2fs-*.log
+bench/t3fs-*.log
+bench/chunked-*.log
+bench/run-*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Prisma
+prisma/migrations/
+
+# State files
+*.state.json

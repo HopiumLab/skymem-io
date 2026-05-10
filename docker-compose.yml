@@ -1,0 +1,31 @@
+# skyMem — single-service compose. Pairs with a host-side or container-side
+# MySQL. Bring your own keys via .env.
+services:
+  skymem:
+    build: .
+    container_name: skymem
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - SKY_EMBED_PROVIDER=cohere
+    ports:
+      - "3003:3003"   # MCP server
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    mem_limit: 4g
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    container_name: skymem-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-skypassword}
+      MYSQL_DATABASE: skymem
+    ports:
+      - "3306:3306"
+    volumes:
+      - skymem_mysql_data:/var/lib/mysql
+
+volumes:
+  skymem_mysql_data:

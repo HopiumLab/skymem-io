@@ -1,0 +1,932 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id              String           @id @default(cuid())
+  name            String
+  slug            String           @unique
+  description     String?          @db.Text
+  status          String           @default("active")
+  stage           String           @default("building")
+  tier            String           @default("standard")
+  ipFeeMonthly    Float            @default(0)
+  debtToRTH       Float            @default(0)
+  isSubsidiary    Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  agents          Agent[]
+  contentPosts    ContentPost[]
+  contracts       Contract[]
+  decisions       Decision[]
+  expenses        Expense[]
+  fundingRequests FundingRequest[]
+  investments     Investment[]
+  repos           Repo[]
+  revenues        Revenue[]
+  tasks           TaskLog[]
+  trades          Trade[]
+}
+
+model Repo {
+  id        String    @id @default(cuid())
+  name      String
+  path      String
+  purpose   String?   @db.Text
+  techStack String?
+  companyId String
+  status    String    @default("active")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  autoPush  Boolean   @default(true)
+  agents    Agent[]
+  company   Company   @relation(fields: [companyId], references: [id])
+  tasks     TaskLog[]
+
+  @@index([companyId], map: "Repo_companyId_fkey")
+}
+
+model Agent {
+  id               String         @id @default(cuid())
+  name             String
+  role             String
+  personality      String?        @db.Text
+  systemPrompt     String?        @db.Text
+  model            String         @default("sonnet")
+  isOrchestrator   Boolean        @default(false)
+  equityShare      Float          @default(0)
+  performance      Float          @default(50)
+  repoId           String?
+  companyId        String
+  commands         Json?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  company          Company        @relation(fields: [companyId], references: [id])
+  repo             Repo?          @relation(fields: [repoId], references: [id])
+  sentMessages     AgentMessage[] @relation("SentMessages")
+  receivedMessages AgentMessage[] @relation("ReceivedMessages")
+  tasks            TaskLog[]
+
+  @@index([companyId], map: "Agent_companyId_fkey")
+  @@index([repoId], map: "Agent_repoId_fkey")
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  source    String
+  role      String
+  content   String   @db.Text
+  metadata  Json?
+  agentId   String?
+  companyId String?
+  createdAt DateTime @default(now())
+  sessionId String?
+
+  @@index([source])
+  @@index([createdAt])
+  @@index([companyId])
+  @@index([sessionId])
+}
+
+model Session {
+  id            String   @id @default(cuid())
+  source        String
+  topic         String?  @db.Text
+  summary       String?  @db.Text
+  active        Boolean  @default(true)
+  messageCount  Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastMessageAt DateTime @default(now())
+
+  @@index([source, active])
+  @@index([lastMessageAt])
+}
+
+model Decision {
+  id          String    @id @default(cuid())
+  title       String
+  description String    @db.Text
+  context     String?   @db.Text
+  outcome     String?   @db.Text
+  status      String    @default("made")
+  reviewDate  DateTime?
+  companyId   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  company     Company?  @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([status])
+}
+
+model Knowledge {
+  id         String   @id @default(cuid())
+  title      String
+  content    String   @db.Text
+  category   String
+  tags       Json
+  companyId  String?
+  confidence Float    @default(1)
+  sourceType String
+  validated  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([category])
+  @@index([confidence])
+}
+
+model UserProfile {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   @db.Text
+  category  String
+  source    String   @default("inferred")
+  updatedAt DateTime @updatedAt
+}
+
+model Fund {
+  id          String       @id @default(cuid())
+  name        String       @default("<umbrella> Fund I")
+  totalBudget Float        @default(0)
+  allocated   Float        @default(0)
+  reserve     Float        @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  investments Investment[]
+}
+
+model Investment {
+  id             String    @id @default(cuid())
+  fundId         String
+  companyId      String
+  stage          String    @default("pre-seed")
+  resourceBudget Float     @default(0)
+  burnRate       Float     @default(0)
+  runway         Float     @default(0)
+  kpis           Json?
+  nextReview     DateTime?
+  status         String    @default("active")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  company        Company   @relation(fields: [companyId], references: [id])
+  fund           Fund      @relation(fields: [fundId], references: [id])
+
+  @@index([companyId], map: "Investment_companyId_fkey")
+  @@index([fundId], map: "Investment_fundId_fkey")
+}
+
+model Revenue {
+  id          String   @id @default(cuid())
+  companyId   String
+  amount      Float
+  currency    String   @default("GBP")
+  source      String
+  description String?
+  date        DateTime @default(now())
+  company     Company  @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([date])
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  companyId   String?
+  amount      Float
+  currency    String   @default("GBP")
+  category    String
+  description String?
+  model       String?
+  date        DateTime @default(now())
+  company     Company? @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([category])
+  @@index([date])
+}
+
+model FundingRequest {
+  id                String    @id @default(cuid())
+  companyId         String
+  amount            Float
+  currency          String    @default("GBP")
+  purpose           String    @db.Text
+  justification     String?   @db.Text
+  status            String    @default("pending")
+  skyRecommendation String?   @db.Text
+  approvedAmount    Float?
+  fundingSource     String?
+  reviewedAt        DateTime?
+  fulfilledAt       DateTime?
+  createdAt         DateTime  @default(now())
+  company           Company   @relation(fields: [companyId], references: [id])
+
+  @@index([status])
+  @@index([companyId])
+}
+
+model TaskLog {
+  id           String    @id @default(cuid())
+  prompt       String    @db.Text
+  result       String?   @db.Text
+  status       String    @default("pending")
+  duration     Int?
+  model        String?
+  cost         Float?
+  tokens       Int?
+  agentId      String?
+  repoId       String?
+  companyId    String?
+  createdAt    DateTime  @default(now())
+  completedAt  DateTime?
+  parentTaskId String?
+  agent        Agent?    @relation(fields: [agentId], references: [id])
+  company      Company?  @relation(fields: [companyId], references: [id])
+  parentTask   TaskLog?  @relation("TaskChain", fields: [parentTaskId], references: [id])
+  childTasks   TaskLog[] @relation("TaskChain")
+  repo         Repo?     @relation(fields: [repoId], references: [id])
+
+  @@index([status])
+  @@index([companyId])
+  @@index([agentId])
+  @@index([parentTaskId])
+  @@index([createdAt])
+  @@index([repoId], map: "TaskLog_repoId_fkey")
+}
+
+model AgentMessage {
+  id          String   @id @default(cuid())
+  fromAgentId String
+  toAgentId   String
+  content     String   @db.Text
+  metadata    Json?
+  type        String   @default("info")
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  fromAgent   Agent    @relation("SentMessages", fields: [fromAgentId], references: [id])
+  toAgent     Agent    @relation("ReceivedMessages", fields: [toAgentId], references: [id])
+
+  @@index([fromAgentId])
+  @@index([toAgentId])
+  @@index([createdAt])
+}
+
+model Contract {
+  id          String    @id @default(cuid())
+  companyId   String
+  platform    String    @default("upwork")
+  clientName  String
+  title       String
+  description String?   @db.Text
+  budget      Float
+  currency    String    @default("USD")
+  status      String    @default("proposal")
+  proposalUrl String?
+  deadline    DateTime?
+  deliveredAt DateTime?
+  paidAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  company     Company   @relation(fields: [companyId], references: [id])
+
+  @@index([status])
+  @@index([companyId])
+}
+
+model ContentPost {
+  id          String    @id @default(cuid())
+  companyId   String
+  platform    String
+  contentType String
+  caption     String?   @db.Text
+  mediaUrl    String?
+  status      String    @default("draft")
+  scheduledAt DateTime?
+  postedAt    DateTime?
+  views       Int?
+  likes       Int?
+  comments    Int?
+  shares      Int?
+  saves       Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  company     Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([platform])
+  @@index([status])
+}
+
+model Trade {
+  id         String    @id @default(cuid())
+  companyId  String
+  platform   String
+  direction  String
+  asset      String
+  amount     Float
+  entryPrice Float?
+  exitPrice  Float?
+  pnl        Float?
+  reasoning  String?   @db.Text
+  status     String    @default("open")
+  openedAt   DateTime  @default(now())
+  closedAt   DateTime?
+  company    Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([status])
+}
+
+model TeamMember {
+  id           String   @id @default(cuid())
+  name         String
+  role         String
+  contact      String?
+  contactType  String?
+  companyId    String?
+  skills       Json?
+  availability String?
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Embedding {
+  id         String   @id @default(cuid())
+  sourceType String
+  sourceId   String
+  content    String   @db.Text
+  vector     Json
+  createdAt  DateTime @default(now())
+
+  // === Phase 1 scope mirror — denormalised from MemoryNode for pre-cosine filtering ===
+  // The embedding cache scans in JS; with these fields on the row we can drop
+  // out-of-scope candidates BEFORE computing cosine, which is the hot path.
+  // Audience + subjects deliberately not mirrored — privacy filter runs after
+  // cosine on a small candidate set that already has the node loaded.
+  chatJid    String?
+  companyId  String?
+  tier       String?
+
+  @@index([sourceType])
+  @@index([sourceId])
+  @@index([chatJid])
+  @@index([tier])
+}
+
+model FlowProcess {
+  id          String     @id @default(cuid())
+  name        String
+  description String?    @db.Text
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  edges       FlowEdge[]
+  nodes       FlowNode[]
+
+  @@index([name])
+}
+
+model FlowNode {
+  id          String           @id @default(cuid())
+  processId   String
+  label       String
+  description String?          @db.Text
+  type        String           @default("default")
+  positionX   Float            @default(0)
+  positionY   Float            @default(0)
+  ownerId     String?
+  ownerName   String?
+  status      String           @default("active")
+  tags        Json?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  attachments FlowAttachment[]
+  process     FlowProcess      @relation(fields: [processId], references: [id])
+
+  @@index([processId])
+}
+
+model FlowEdge {
+  id        String      @id @default(cuid())
+  processId String
+  sourceId  String
+  targetId  String
+  label     String?
+  createdAt DateTime    @default(now())
+  process   FlowProcess @relation(fields: [processId], references: [id])
+
+  @@index([processId])
+  @@index([sourceId])
+  @@index([targetId])
+}
+
+model FlowAttachment {
+  id         String   @id @default(cuid())
+  nodeId     String
+  name       String
+  type       String
+  url        String
+  uploadedAt DateTime @default(now())
+  node       FlowNode @relation(fields: [nodeId], references: [id])
+
+  @@index([nodeId])
+}
+
+model MemoryNode {
+  id              String       @id @default(cuid())
+  type            String
+  content         String       @db.Text
+  weight          Float        @default(0.3)
+  activationCount Int          @default(0)
+  lastActivated   DateTime?
+  tags            Json
+  sourceType      String?
+  sourceId        String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  outEdges        MemoryEdge[] @relation("EdgeSource")
+  inEdges         MemoryEdge[] @relation("EdgeTarget")
+
+  // Temporal reasoning (defeasible knowledge)
+  validFrom      DateTime?               // When this belief became true
+  validUntil     DateTime?               // When superseded (null = still current)
+  supersededById String?                 // FK to the node that replaced this one
+  supersededBy   MemoryNode?  @relation("Supersedes", fields: [supersededById], references: [id])
+  supersedes     MemoryNode[] @relation("Supersedes")
+
+  // External enrichment tracking
+  enrichedAt     DateTime?               // When enrichment last ran on this node
+  enrichedBy     Json?                   // Array of adapter names ["calendar", "web"]
+  enrichmentLogs EnrichmentLog[]
+
+  // === Phase 1 scope tuple + privacy attributes ===
+  // chatJid: origin chat — `whatsapp:dm:<jid>` | `whatsapp:group:<jid>` | `terminal` | `api`. null until backfilled.
+  chatJid    String?
+  // userId: placeholder for multi-user future. always the user today.
+  userId     String?
+  // companyId: entity scope — null for personal/the user-only. References Company.id at the app layer (not enforced as FK; nodes can outlive companies).
+  companyId  String?
+  // tier: 'private' | 'chat' | 'entity' | 'cross-entity' | 'global'. Validated in JS at write time. Stored as String? for online ALTER flexibility (vs MySQL ENUM).
+  tier       String?
+  // audience: 'ross-only' | 'entity-members' | 'cross-entity' | 'public'. Same enum-as-string treatment as tier.
+  audience   String?
+  // subjects: string[] of people/things this node is about. Phase 1 backfills coarsely (sender name); Phase 2 will run real subject extraction.
+  subjects   Json?
+
+  // Phase 5 (chat-tagging): nodes from a tagged chat carry attribution
+  // metadata so the persona builder can treat tagged-chat content as
+  // first-class evidence even when the person's name isn't literally in
+  // the message text. Shape: [{personaId: string, weight: number}].
+  // Null until ChatTag rows exist for the chatJid + Phase 5 ships the
+  // ingest-side tagger.
+  attributedPersonas Json?
+
+  // === Tier 4 multi-axis temporal metadata (2026-05-10) ===
+  // Most memory systems collapse time into one axis (when ingested). Real
+  // temporal reasoning needs multiple axes:
+  //   • createdAt        — when ingested into Sky (already there)
+  //   • mentionedAt      — when the speaker referenced the event in chat
+  //                        (= the session timestamp from chatJid + nearby)
+  //   • eventTime        — when the event ITSELF actually happened (may
+  //                        differ from mentionedAt by years: "I went to
+  //                        Tokyo in 2019" mentioned in 2026 chat)
+  //   • sequenceBefore   — Json array of MemoryNode ids that this event
+  //                        happened before (causal/temporal chain)
+  //   • sequenceAfter    — Json array of MemoryNode ids this happened after
+  //   • timeConfidence   — how certain are we about eventTime (0.0-1.0)
+  // The TEMPORAL prompt mode (cat=2 fix) gets ~80% of the lift without
+  // these fields, but with them the answer-generator can do precise
+  // causal/sequence reasoning ("what happened BEFORE X?").
+  mentionedAt     DateTime?
+  eventTime       DateTime?
+  sequenceBefore  Json?
+  sequenceAfter   Json?
+  timeConfidence  Float?
+
+  @@index([type])
+  @@index([weight])
+  @@index([lastActivated])
+  @@index([sourceType, sourceId])
+  @@index([validUntil])
+  @@index([supersededById])
+  // Phase 1 scope indexes — chat-scope filter and entity+tier filter are the
+  // hot-path Prisma whereses on retrieval.
+  @@index([chatJid])
+  @@index([companyId, tier])
+  @@index([tier])
+  // Phase 1F FTS index — backs the keyword hot path and the cold-tier
+  // surface (sky/keyword-search.js). Built online via ALTER TABLE … ADD
+  // FULLTEXT, slow on a large table — schedule during a quiet window.
+  @@fulltext([content])
+}
+
+model MemoryEdge {
+  id         String     @id @default(cuid())
+  sourceId   String
+  targetId   String
+  strength   Float      @default(0.4)
+  type       String
+  linkerNote String?    @db.Text
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  source     MemoryNode @relation("EdgeSource", fields: [sourceId], references: [id], onDelete: Cascade)
+  target     MemoryNode @relation("EdgeTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, targetId])
+  @@index([sourceId])
+  @@index([targetId])
+  @@index([strength])
+}
+
+model EnrichmentLog {
+  id          String     @id @default(cuid())
+  nodeId      String
+  adapter     String
+  resultCount Int
+  confidence  Float
+  createdAt   DateTime   @default(now())
+  node        MemoryNode @relation(fields: [nodeId], references: [id])
+
+  @@index([nodeId])
+  @@index([adapter])
+}
+
+model OutreachCampaign {
+  id        String          @id @default(cuid())
+  name      String
+  product   String
+  status    String          @default("active")
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  emails    OutreachEmail[]
+}
+
+model OutreachEmail {
+  id                String           @id @default(cuid())
+  campaignId        String
+  recipientName     String
+  recipientEmail    String
+  recipientTitle    String?
+  recipientCompany  String?
+  recipientLinkedIn String?
+  senderAgent       String
+  senderEmail       String
+  subject           String
+  body              String           @db.Text
+  status            String           @default("draft")
+  sentAt            DateTime?
+  openedAt          DateTime?
+  repliedAt         DateTime?
+  opened            Boolean          @default(false)
+  replied           Boolean          @default(false)
+  timeOfDay         String?
+  dayOfWeek         String?
+  followUpCount     Int              @default(0)
+  outcome           String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  campaign          OutreachCampaign @relation(fields: [campaignId], references: [id])
+
+  @@index([campaignId])
+  @@index([status])
+  @@index([recipientCompany])
+}
+
+// Reminders — operational state for ?reminder command + proactive layer.
+//
+// Sky-workers runs a 60s ticker scanning for status='pending' AND dueAt <= now,
+// fires the reminder via the bridge, marks status='fired'. Survives bridge
+// restarts because workers run in their own container.
+//
+// `source` is the channel JID we should reply on (e.g. whatsapp:dm:<jid>) —
+// stored so a reminder set in a group fires back to that group, not the user's DM.
+// `kind` distinguishes user-set reminders ('manual') from proactive nudges
+// produced by the detection layer ('nudge:staleness', 'nudge:deadline', etc).
+model Reminder {
+  id        String    @id @default(cuid())
+  text      String    @db.Text
+  dueAt     DateTime
+  source    String    // e.g. "whatsapp:dm:33642673277@s.whatsapp.net"
+  kind      String    @default("manual") // manual | nudge:<detector>
+  status    String    @default("pending") // pending | fired | cancelled
+  createdAt DateTime  @default(now())
+  firedAt   DateTime?
+
+  @@index([status, dueAt])
+  @@index([kind])
+}
+
+// NudgeCandidate — output of the Sentinel detection layer.
+//
+// Detectors (sky/detectors/*.js) run periodically in sky-workers and emit
+// candidates: things Sky has noticed that the user might want to know about.
+// They go through a delivery filter (quiet hours, daily cap, mute, snooze
+// memory) and either:
+//   - fire as a DM if urgency >= 0.9 (status='delivered')
+//   - get batched into the next morning brief if urgency < 0.7 (status='batched')
+//   - sit pending until a "good moment" if 0.7-0.9
+//   - get dropped if expired or filtered (status='dropped' / 'filtered')
+//
+// `evidence` is JSON describing why the detector fired (node IDs, dates,
+// thresholds, etc). Useful for "why did Sky surface this?" debugging.
+//
+// `dedupeKey` lets detectors avoid duplicates — e.g. the staleness detector
+// fires once per follow-up node id. Repeats with the same key get suppressed.
+model NudgeCandidate {
+  id              String    @id @default(cuid())
+  kind            String    // staleness | runway-shift | invoice-aging | ...
+  urgency         Float     @default(0.5) // 0..1
+  text            String    @db.Text // user-facing message body
+  evidence        Json?     // detector-specific debugging info
+  suggestedAction String?   @db.Text // optional: "?followups done <id>" or similar
+  dedupeKey       String?   // detector-defined dedupe — usually node id or topic
+  status          String    @default("pending") // pending | delivered | batched | filtered | dropped | snoozed
+  createdAt       DateTime  @default(now())
+  expiresAt       DateTime?
+  deliveredAt     DateTime?
+  snoozedUntil    DateTime? // user can snooze a nudge — sets this; status returns to 'pending' after
+  reminderId      String?   // if delivered, link to the Reminder row that was queued
+
+  @@index([status, createdAt])
+  @@index([kind])
+  @@index([dedupeKey])
+}
+
+// Mute — global silence for proactive nudges.
+//
+// the user sets this with `!mute <duration>` or `?mute <duration>`. Until expiresAt
+// the delivery worker drops anything below urgency 0.9. Single-row table — we
+// always upsert id='current' so there's never more than one active mute.
+model Mute {
+  id        String   @id @default("current") // sentinel value — only one row
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  reason    String?  // optional: "deep work" / "in meetings"
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// PERSONA LAYER — vNext (2026-05-08).
+//
+// Derived, structured, slot-addressable view of who the user is, what he's
+// building, who's around him. Distilled FROM the conversation graph (which
+// remains the immutable source of truth) by LLM extraction sweeps. Routed
+// at query-time by domain hint from the intent classifier.
+//
+// Design exploration: docs/persona-layer-design.md (v1 parity with Synthius)
+//                      docs/persona-layer-vNext.md (leap-ahead 6 primitives)
+//
+// Integration pattern: AUGMENT — persona facts flow alongside semantic + FTS
+// + edge-walk into the reranker. Not a replacement for graph retrieval.
+// ──────────────────────────────────────────────────────────────────────────
+
+// PersonaFact — current snapshot per (domain, slot). The "current" view.
+//
+// Each domain × slot is unique — there's always exactly one current fact
+// for `people.marie`. Updates happen via supersession (validUntil set on
+// previous, new row inserted) or in-place (updatedAt bumped). Revision
+// history lives in PersonaFactRevision (Phase 1 — trajectories).
+//
+// `facts` is JSON for schema flexibility per domain. When a domain's shape
+// stabilises, we may evolve it to a typed sub-model in v2.
+//
+// Provenance: `sourceNodes[]` lists the MemoryNode ids that contributed.
+// Reviewable; auditable; enables targeted re-extraction when sources change.
+model PersonaFact {
+  id           String   @id @default(cuid())
+
+  // Domain × slot is the addressing scheme.
+  domain       String   // 'identity' | 'portfolio' | 'active' | 'people' | 'decisions' | 'preferences' | 'goals'
+  slot         String   // sub-key within domain — e.g. 'marie' | 'project-a' | 'this-week' | 'voice'
+
+  // The structured payload. Schema-per-domain (validated at write time
+  // by sky/persona-extractor.js). JSON for flexibility in v1.
+  facts        Json
+
+  // Confidence in the extracted fact (0..1). Updated by self-supervised
+  // loop (Phase 3) based on accept/reject signal from the user's responses.
+  confidence   Float    @default(0.7)
+
+  // Provenance — the MemoryNode ids that contributed to this fact.
+  // Stored as a JSON string array (MySQL doesn't have native String[]).
+  sourceNodes  Json     // string[]
+
+  // Standard scope tuple — same as MemoryNode. Persona is mostly
+  // ross-only / global, but portfolio sub-records may carry companyId.
+  chatJid      String?
+  companyId    String?
+  audience     String   @default("ross-only")
+  tier         String   @default("global")
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  validUntil   DateTime?
+
+  // Back-relations to phase 1/3/5 tables
+  revisions    PersonaFactRevision[]
+  validations  PersonaFactValidation[]
+  chatTags     ChatTag[]
+
+  @@unique([domain, slot])
+  @@index([domain])
+  @@index([slot])
+  @@index([audience, tier])
+}
+
+// PersonaFactRevision — append-only history per fact. Phase 1 (trajectories).
+//
+// Every PersonaFact write produces a revision. Trajectories are computed
+// at query time over the revision history (slope, velocity, inflection
+// detection). The revision log is what enables "the user's revenue ambition
+// is accelerating" rather than just "the user's current target is X".
+//
+// Pre-Phase-1 this table can stay empty — extraction code writes only to
+// PersonaFact directly, and the revision write is a no-op stub. Phase 1
+// adds the revision wiring.
+model PersonaFactRevision {
+  id           String   @id @default(cuid())
+  factId       String
+  fact         PersonaFact @relation(fields: [factId], references: [id], onDelete: Cascade)
+  payload      Json     // snapshot of facts payload at this revision
+  confidence   Float
+  source       String   // 'extraction' | 'correction' | 'merge' | 'manual'
+  reason       String?  // optional LLM-generated rationale for the change
+  createdAt    DateTime @default(now())
+  @@index([factId, createdAt])
+}
+
+// BehaviouralPattern — Phase 2 (meta-cognition).
+//
+// Learned meta-rules extracted from trajectory + outcome history. Not a
+// fact about the user — a rule that predicts him. "When stressed, decisions
+// trend conservative." "Sharpest reasoning 06:00-09:00 BST."
+//
+// Discovered by nightly Sonnet sweep over PersonaFactRevision +
+// MemoryNode (sentiment, decision-outcome pairs). Stored with confidence
+// + sample size + provenance. Stale patterns decay; high-sample-size
+// patterns persist.
+model BehaviouralPattern {
+  id           String   @id @default(cuid())
+  category     String   // 'decision-style' | 'energy' | 'abandonment' | 'communication' | etc
+  rule         String   @db.Text // natural-language statement
+  conditions   Json     // structured trigger conditions
+  prediction   Json     // structured predicted tendency
+  sampleSize   Int      // how many supporting instances
+  confidence   Float
+  sources      Json     // string[] of MemoryNode / PersonaFact ids
+  lastObserved DateTime
+  createdAt    DateTime @default(now())
+  validUntil   DateTime?
+  @@index([category])
+  @@index([confidence])
+}
+
+// PersonaFactValidation — Phase 3 (self-supervised confidence loop).
+//
+// When Sky proposes something grounded in a PersonaFact, and the user accepts /
+// rejects / edits, the outcome updates the fact's confidence (Bayesian
+// update). The proposal carries the fact IDs it consumed; the bridge's
+// existing propose-confirm reply hook captures the outcome signal.
+//
+// Pre-Phase-3 this table stays empty — proposals don't yet carry fact IDs
+// and the reply hook isn't yet listening. Phase 3 wires it.
+model PersonaFactValidation {
+  id              String   @id @default(cuid())
+  factId          String
+  fact            PersonaFact @relation(fields: [factId], references: [id], onDelete: Cascade)
+  proposalId      String   // the Sky outbound that used this fact
+  outcome         String   // 'accepted' | 'rejected' | 'edited' | 'ignored'
+  confidenceDelta Float    // applied to fact.confidence
+  evidence        Json?    // correction text if outcome=edited
+  createdAt       DateTime @default(now())
+  @@index([factId, createdAt])
+  @@index([outcome])
+}
+
+// ChatTag — Phase 5 (relational depth multiplier).
+//
+// Tags a chatJid to one or more personas. 1:1 chats auto-tag to the
+// non-the user participant; group chats auto-tag to all known participants
+// weighted by participation share (sums to ≤ 1.0 across personas, never
+// duplicated). Manual override via `!tag <chatJid> @marie [@sam]`.
+//
+// Every MemoryNode ingested from a tagged chat carries
+// MemoryNode.attributedPersonas (added below) — full conversation content
+// counts toward the persona's signal, not just nodes that mention the
+// person's name. Massively richer signal for trajectory + pattern
+// extraction.
+//
+// Pre-Phase-5 this table stays empty — ingestion code falls through if
+// no ChatTag exists for the chatJid. Phase 5 lights up the auto-tag
+// pipeline + manual commands.
+model ChatTag {
+  id           String   @id @default(cuid())
+  chatJid      String
+  personaId    String   // FK to PersonaFact (network persona — domain='people')
+  persona      PersonaFact @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  weight       Float    // 1.0 for 1:1, share-of-messages for groups
+  source       String   @default("auto-1to1") // 'auto-1to1' | 'auto-group' | 'manual' | 'untagged'
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  @@unique([chatJid, personaId])
+  @@index([chatJid])
+  @@index([personaId])
+}
+
+// ============================================================
+// MEMORY OBSERVABILITY (2026-05-10) — Tier 5
+// ============================================================
+// "Why did the AI believe this?" infrastructure. When skyMem becomes
+// enterprise infra (healthcare / legal / finance / regulated AI),
+// auditability isn't a feature — it's the price of entry.
+//
+// Three tables:
+//   • AuditLog — every read/write event on the memory layer
+//   • ContradictionPair — detected conflicts between facts (Phase 5.b)
+//   • DecisionLineage — for any AI decision, the chain of facts used
+//
+// Surfaced via sky/observability.js + MCP tools + future web dashboard.
+
+// AuditLog — append-only event log of every memory-layer interaction.
+//
+// Captures: who/what initiated, what query was run, which facts were
+// retrieved, what decision was produced, what was written. Lets compliance
+// teams answer "why did the AI believe X on date Y?" with receipts.
+//
+// Volume: every chat turn writes ~5-10 audit rows. Daily volume for an
+// active chat user: ~500-1000 rows. Index by (createdAt, eventType) so
+// time-windowed queries are fast.
+model AuditLog {
+  id           String   @id @default(cuid())
+  eventType    String   // 'retrieval' | 'fact-write' | 'fact-update' | 'fact-supersede' | 'decision' | 'validation' | 'pattern-mine' | 'promotion'
+  actor        String?  // 'sky' | 'user' | 'cron:nightly' | 'mcp:<client-id>' | etc
+  query        String?  @db.Text  // the question / prompt that triggered this
+  factsUsed    Json?    // [factId, ...] — facts that informed the event
+  factsWritten Json?    // [factId, ...] — facts created/updated by the event
+  nodesUsed    Json?    // [nodeId, ...] — raw memory nodes that were retrieved
+  scope        String?  // chatJid / projectId / scope tag
+  outcome      String?  // 'success' | 'failure' | 'partial' | 'abstained'
+  metadata     Json?    // free-form: confidence scores, retrieval ranks, prompt size, latency, etc.
+  createdAt    DateTime @default(now())
+  @@index([createdAt])
+  @@index([eventType, createdAt])
+  @@index([scope, createdAt])
+  @@index([actor])
+}
+
+// ContradictionPair — detected pairs of facts that semantically disagree.
+// Discovered by a nightly Sonnet sweep that compares (domain, slot)
+// neighbours and flags semantic conflicts. The pair is surfaced for
+// resolution: which fact is correct, which is superseded?
+//
+// Resolution actions:
+//   - 'kept-A' / 'kept-B' — one fact wins, the other gets validUntil set
+//   - 'merged' — facts are reconciled into a new combined record
+//   - 'both-valid' — context-dependent (e.g. different time windows)
+//   - 'unresolved' — still open
+model ContradictionPair {
+  id           String   @id @default(cuid())
+  factAId      String
+  factBId      String
+  rationale    String   @db.Text  // why these two contradict
+  severity     Float    @default(0.5) // 0-1; higher = more important to resolve
+  resolution   String   @default("unresolved") // see above
+  resolvedById String?  // factId of the winner if applicable
+  detectedAt   DateTime @default(now())
+  resolvedAt   DateTime?
+  @@unique([factAId, factBId])
+  @@index([resolution])
+  @@index([severity])
+  @@index([detectedAt])
+}
+
+// DecisionLineage — for any decision/outbound the AI produces, the chain
+// of facts + nodes + patterns that contributed. Enables "decision X was
+// based on these 7 facts; here's the trajectory of each over the last 30
+// days; here's the contradiction we resolved en route."
+//
+// Written every time generateAnswer / proposal-builder produces output
+// that's tied to a downstream effect (a sent message, a recommended
+// action, a code change in builder mode).
+model DecisionLineage {
+  id              String   @id @default(cuid())
+  decisionId      String   @unique // external id (proposal id, message id, code commit)
+  decisionType    String   // 'chat-response' | 'proposal' | 'code-suggestion' | 'recommendation' | 'abstention'
+  decisionContent String?  @db.Text  // what was decided/output
+  factsUsed       Json     // [factId, ...] — facts that contributed
+  nodesUsed       Json?    // [nodeId, ...] — raw evidence
+  patternsUsed    Json?    // [patternId, ...] — behavioural patterns that fired
+  trajectoriesSnapshot Json? // {factId: state, ...} — trajectory state at decision time
+  scope           String?  // chatJid / projectId
+  actor           String?  // 'sky' | 'mcp:<client>' | ...
+  createdAt       DateTime @default(now())
+  @@index([scope, createdAt])
+  @@index([decisionType, createdAt])
+  @@index([actor])
+}
