@@ -111,10 +111,22 @@ run_variant() {
       --start-question="${q}" \
       --questions-per="$((qend - q))" \
       > "$clog" 2>&1; then
-      # Pull final tallies from the chunk log
-      local ck_total ck_correct
-      ck_total=$(grep -oE 'Total questions: \d+' "$clog" | tail -1 | awk '{print $3}')
-      ck_correct=$(grep -oE 'Correct: \d+' "$clog" | tail -1 | awk '{print $2}')
+      # Pull final tallies from the chunk log.
+      #
+      # FIX (Bug L, 2026-05-11): bench-locomo.js formats the AGGREGATE block as
+      # "Total: <correct>/<total> correct (<pct>%)" — NOT as the original
+      # "Total questions: N" / "Correct: N" patterns this script used to assume.
+      # The mismatch silently wrote 0/0 for every variant in run abl-20260511-021039
+      # and meant the wrapper aggregator produced an all-zeros ABLATION-TABLE.json.
+      # The chunk logs themselves were always correct; the wrapper just couldn't
+      # read them.
+      local ck_total ck_correct ck_line
+      ck_line=$(grep -E '^Total: [0-9]+/[0-9]+ correct' "$clog" | tail -1)
+      if [ -n "$ck_line" ]; then
+        # Strip the prefix and the trailing " correct" to get "N/M"
+        ck_correct=$(echo "$ck_line" | sed -E 's|^Total: ([0-9]+)/[0-9]+ correct.*|\1|')
+        ck_total=$(echo "$ck_line"   | sed -E 's|^Total: [0-9]+/([0-9]+) correct.*|\1|')
+      fi
       variant_total=$((variant_total + ${ck_total:-0}))
       variant_correct=$((variant_correct + ${ck_correct:-0}))
       echo "  ${label} q${q}: ${ck_correct:-?}/${ck_total:-?} exit=0" | tee -a "$LOG"

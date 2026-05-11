@@ -157,6 +157,21 @@ What looked like two separate incidents traced back to 11 interacting bugs — m
 | **Status** | fixed |
 | **Commit** | `1495cab` — `sky/index.js` `detectIdea` + `handleValidateIdea` + dispatcher |
 
+### L — `run-ablation.sh` wrapper tally-parsing regression
+
+| | |
+|---|---|
+| **Class** | tooling |
+| **Date** | 2026-05-11 |
+| **Symptom** | Every variant in T6 ablation run `abl-20260511-021039` shows `0/0 = 0.00%` in the master log and in per-variant summary JSONs. ABLATION-TABLE.json identical for all 6 variants |
+| **Root cause** | `scripts/run-ablation.sh` parses per-chunk results with `grep -oE 'Total questions: \d+'` and `grep -oE 'Correct: \d+'`. Neither pattern exists in the actual `bench-locomo.js` chunk-log output, which formats the result as `Total: N/M correct (P%)`. The wrapper's tally fields stayed at zero, the variant summary JSON wrote zero, the aggregator computed zero, and the master log displayed `?/? exit=0` for every chunk |
+| **Impact** | Cosmetic only — the per-chunk `bench-locomo.js` runs themselves were correct (graded, scored, JSON-written to `results-locomo-*.json`). The chunk logs at `/app/bench/abl-*-VARIANT-q*.log` contained the real numbers. Only the wrapper-script aggregation was broken |
+| **Fix** | Post-completion inline Node aggregator that re-scanned every chunk log with the correct regex `^Total: (\d+)/(\d+) correct` and wrote `abl-20260511-021039-ABLATION-TABLE-FIXED.json` with the real per-variant accuracies. The wrapper script itself needs a one-line regex patch — deferred to a follow-up commit because mid-run script edits would have disrupted the long-running ablation |
+| **Status** | partial — corrected numbers landed in `docs/ABLATION-RESULTS.md`; `scripts/run-ablation.sh` regex fix queued for next non-blocking window |
+| **Commit** | follow-up commit for the wrapper-script regex |
+
+---
+
 ### K — Sky-the-PA cannot create_event / send_email from WhatsApp chat
 
 | | |
