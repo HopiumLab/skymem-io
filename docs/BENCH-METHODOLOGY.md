@@ -13,10 +13,10 @@ If a claim on the home page or in the pitch deck isn't reproducible from this do
 | Metric | Value | Provenance |
 |---|---|---|
 <!-- FILL:TLDR:BEGIN -->
-| **Aggregate accuracy** | **66.82%** | run tag `t3fs-20260510-202955` |
+| **Aggregate accuracy** | **69.23%** | run tag `t3fs-20260511-093306` |
 | **Questions graded** | 1986 (target 1,986) | LOCOMO public dataset v1 |
 | **Conversations covered** | derived from summary.byConv when present | conv-26, 30, 41, 42, 43, 44, 47, 48, 49, 50 |
-| **Total elapsed** | 322m 1s | wall-clock |
+| **Total elapsed** | 351m 11s | wall-clock |
 | **Token cost per question (avg)** | _instrumentation pending — see § Cost + latency_ | bridge logs |
 | **Latency p50 / p95 per question** | _instrumentation pending — see § Cost + latency_ | bridge logs |
 | **Hardware** | Docker Desktop on Windows 11, Node 22, Postgres 16 + pgvector | reproducible via `docker-compose up` |
@@ -31,7 +31,7 @@ For comparison:
 | ByteRover 2.0 | 92.2% | ByteRover blog post |
 | MemMachine v0.2 | 91.7% | MemMachine paper |
 | Mem0 (new algorithm) | 91.6% | Mem0 announcement, 2025 |
-| **skyMem (this run)** | **66.82%** | this doc |
+| **skyMem (this run)** | **69.23%** | this doc |
 | Memori | 81.95% | Memori paper |
 | Zep / Graphiti | ~75.1% | Graphiti paper |
 
@@ -125,11 +125,11 @@ _To be filled in from `t3fs-20260510-110030-summary.json` after run completes._
 | Category | Description | Questions | Correct | Accuracy |
 |---|---|---|---|---|
 <!-- FILL:CATEGORY:BEGIN -->
-| `cat1` | single-hop / literal | 282 | 100 | **35.46%** |
-| `cat2` | temporal | 321 | 192 | **59.81%** |
-| `cat3` | multi-hop | 96 | 36 | **37.50%** |
-| `cat4` | open-domain | 841 | 586 | **69.68%** |
-| `cat5` | adversarial | 446 | 413 | **92.60%** |
+| `cat1` | single-hop / literal | 282 | 115 | **40.78%** |
+| `cat2` | temporal | 321 | 185 | **57.63%** |
+| `cat3` | multi-hop | 96 | 43 | **44.79%** |
+| `cat4` | open-domain | 841 | 621 | **73.84%** |
+| `cat5` | adversarial | 444 | 411 | **92.57%** |
 <!-- FILL:CATEGORY:END -->
 
 **Honesty note:** the worst category will be called out explicitly. If single-hop is 92% but multi-hop is 67%, the headline is the weighted aggregate, with a "we're weakest on multi-hop, here's why and what we're doing about it" paragraph immediately below.
@@ -161,16 +161,16 @@ _To be filled in after run completes._
 | # | Conv / Q | Question | Expected | Got | Why we got it wrong | Layer at fault |
 |---|---|---|---|---|---|---|
 <!-- FILL:FAILURES:BEGIN -->
-| 1 | `cat=1` | What items has Audrey bought or made for her dogs? | dog tags, toys, dog beds, collars | doggy play area, agility stuff, toys, goodies for neighbors, homemade treats, ta | t3fs-20260510-202955-conv-44-q30 |
-| 2 | `cat=4` | Who performed at the concert at Melanie's daughter's birthday? | Matt Patterson | Summer Sounds performed at the concert. Melanie mentioned the band was \"playing | t3fs-20260510-202955-conv-26-q120 |
-| 3 | `cat=3` | Is Deborah married? | yes | No. Deborah was married on July 24, 2013, but the transcript indicates her relat | t3fs-20260510-202955-conv-48-q0 |
-| 4 | `cat=2` | How long was the car modification workshop in San Francisco? | two weeks | 14 hours | t3fs-20260510-202955-conv-50-q60 |
-| 5 | `cat=4` | What did Audrey share to show ways to keep dogs active in the city? | photography of a basket full of stuffed animals | A picture of how she entertains her dogs in her house with toys and games. | t3fs-20260510-202955-conv-44-q90 |
-| 6 | `cat=4` | How often does Audrey take her pups to the park for practice? | Twice a week | Multiple times a day. Audrey stated she takes them \"very often, multiple times  | t3fs-20260510-202955-conv-44-q60 |
-| 7 | `cat=4` | Which movie's theme is Tim's favorite to play on the piano? | \"Harry Potter and the Philosopher's Stone\" | No information available\n\nThe transcript shows Tim loves playing a theme from  | t3fs-20260510-202955-conv-43-q90 |
-| 8 | `cat=1` | What kind of writing does Tim do? | comments on favorite books in a fantasy literature forum, articles on fantasy no | Articles about fantasy novels | t3fs-20260510-202955-conv-43-q0 |
-| 9 | `cat=4` | Which activity has John done apart from yoga at the studio? | weight training | Weight training and kickboxing.\n\nJohn mentioned doing weight training and foun | t3fs-20260510-202955-conv-41-q120 |
-| 10 | `cat=4` | What event did John volunteer at last weekend? | career fair at a local school | No information available\n\nThe transcript mentions John volunteering at a caree | t3fs-20260510-202955-conv-41-q60 |
+| 1 | `cat=2` | How long has Nate had his first two turtles? | three years | No information available | t3fs-20260511-093306-conv-42-q0 |
+| 2 | `cat=1` | How many Ferraris does Calvin own? | two | One | t3fs-20260511-093306-conv-50-q30 |
+| 3 | `cat=4` | What milestone did Jolene achieve recently on 4 February, 2023? | Design and build a sustainable water purifier for a rural community | A major engineering milestone that went really well, making her feel relieved an | t3fs-20260511-093306-conv-48-q90 |
+| 4 | `cat=1` | Has Jolene tried surfing? | no | No information available | t3fs-20260511-093306-conv-48-q60 |
+| 5 | `cat=2` | How long did Person L's work on the Ford Mustang take? | nearly two months | 14 hours | t3fs-20260511-093306-conv-50-q60 |
+| 6 | `cat=1` | What causes has John done events for? | Toy drive, Community food drive, veterans, domestic violence | domestic abuse and veterans | t3fs-20260511-093306-conv-41-q30 |
+| 7 | `cat=2` | When did Audrey see a hummingbird? | first week of May 2023 | The week before 3 May 2023 | t3fs-20260511-093306-conv-44-q0 |
+| 8 | `cat=1` | Which US cities does John mention visiting to Tim? | Seattle, Chicago, New York | New York City and Seattle | t3fs-20260511-093306-conv-43-q0 |
+| 9 | `cat=2` | When did Maria take up community work with her church friends? | August 4, 2023 | No information available | t3fs-20260511-093306-conv-41-q30 |
+| 10 | `cat=4` | What was one of Jolene's favorite games to play with her mom on the ni | Monster Hunter: World | No information available\n\nThe transcript mentions Jolene's parents got her a g | t3fs-20260511-093306-conv-48-q150 |
 <!-- FILL:FAILURES:END -->
 For each failure, the analysis answers:
 
@@ -234,7 +234,7 @@ Run-to-run variance with non-deterministic LLM sampling at temp 0:
 | Version | Date | Run tag | Aggregate | Notes |
 |---|---|---|---|---|
 <!-- FILL:VERSION:BEGIN -->
-| v0.1 | 2026-05-11 | `t3fs-20260510-202955` | **66.82%** | First post-Tier-5 full-stack run after 11-bug sweep |
+| v0.1 | 2026-05-11 | `t3fs-20260511-093306` | **69.23%** | First post-Tier-5 full-stack run after 11-bug sweep |
 <!-- FILL:VERSION:END -->
 
 (Each new run with material changes bumps version + appends row.)
