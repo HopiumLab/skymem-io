@@ -49,7 +49,7 @@ declare -A CONV_TOTALS=(
   [conv-44]=158 [conv-47]=190 [conv-48]=239 [conv-49]=196 [conv-50]=204
 )
 CHUNK_SIZE=30
-BENCH_HEAP=1500
+BENCH_HEAP=3000
 
 START_TS=$(date +%s)
 TOTAL_Q=0; TOTAL_C=0

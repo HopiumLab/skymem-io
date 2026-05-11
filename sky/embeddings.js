@@ -55,20 +55,82 @@ let embeddingCache = [];
 let cacheLoadedAt = 0;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
+// Cache load uses CURSOR PAGINATION (P1.6 — 2026-05-10).
+//
+// History: a single findMany() across all 53k+ embedding rows × 1024-dim
+// vectors triggers a Prisma 6.19.2 NAPI string-marshaling bug
+// ("Failed to convert rust `String` into napi `string`") — the entire
+// load throws and the cache stays empty, so every retrieval falls back
+// to a fresh Cohere embed call. Visible as exit=137 OOM on cold first
+// chunks and as warnings every 5 min when the TTL forces a reload.
+//
+// Fix: chunked load. Each batch is well below the marshaling threshold
+// AND tolerates individual batch failures — one bad batch doesn't
+// blackout the whole cache. Total load time on 53k rows: ~5–10s.
+const CACHE_BATCH_SIZE = 5000;
+
 async function loadCache() {
-  try {
-    embeddingCache = await prisma.embedding.findMany({
-      // Phase 1: load scope columns so we can pre-cosine filter in JS.
-      // chatJid/companyId/tier may be null on rows that haven't been
-      // backfilled yet — the scope filter handles null gracefully.
-      select: {
-        id: true, sourceType: true, sourceId: true, content: true, vector: true,
-        chatJid: true, companyId: true, tier: true,
-      },
-    });
+  const t0 = Date.now();
+  const next = [];
+  let lastId = null;
+  let batches = 0;
+  let batchFails = 0;
+
+  while (true) {
+    let batch;
+    try {
+      batch = await prisma.embedding.findMany({
+        where: lastId ? { id: { gt: lastId } } : undefined,
+        orderBy: { id: 'asc' },
+        take: CACHE_BATCH_SIZE,
+        select: {
+          // Phase 1: load scope columns so we can pre-cosine filter in JS.
+          // chatJid/companyId/tier may be null on rows that haven't been
+          // backfilled yet — the scope filter handles null gracefully.
+          id: true, sourceType: true, sourceId: true, content: true, vector: true,
+          chatJid: true, companyId: true, tier: true,
+        },
+      });
+    } catch (err) {
+      // One batch failed — log loud (we want to see these), skip past
+      // it by advancing lastId to the next batch boundary, and keep
+      // going. Better to have 95% of the cache than 0%.
+      batchFails += 1;
+      console.warn(`[Embeddings] Cache batch failed at cursor=${lastId ?? 'start'}: ${err.message.split('\n')[0]}`);
+      if (!lastId) break; // first batch failed → can't advance, bail
+      // Advance by querying just the IDs of the next CACHE_BATCH_SIZE rows
+      // so we can skip past the bad zone without scanning every column.
+      try {
+        const ids = await prisma.embedding.findMany({
+          where: { id: { gt: lastId } },
+          orderBy: { id: 'asc' },
+          take: CACHE_BATCH_SIZE,
+          select: { id: true },
+        });
+        if (ids.length === 0) break;
+        lastId = ids[ids.length - 1].id;
+      } catch (idErr) {
+        console.warn(`[Embeddings] Cache cursor-skip also failed: ${idErr.message.split('\n')[0]}`);
+        break;
+      }
+      continue;
+    }
+
+    if (batch.length === 0) break;
+    next.push(...batch);
+    lastId = batch[batch.length - 1].id;
+    batches += 1;
+    if (batch.length < CACHE_BATCH_SIZE) break;
+  }
+
+  if (next.length > 0) {
+    embeddingCache = next;
     cacheLoadedAt = Date.now();
-  } catch (err) {
-    console.warn('[Embeddings] Failed to load cache:', err.message);
+    const ms = Date.now() - t0;
+    const tail = batchFails > 0 ? ` (${batchFails} batch failure${batchFails === 1 ? '' : 's'} skipped)` : '';
+    console.log(`[Embeddings] Cache loaded: ${next.length} rows in ${batches} batches, ${ms}ms${tail}`);
+  } else {
+    console.warn(`[Embeddings] Cache load yielded 0 rows (${batchFails} batch failure(s))`);
   }
 }
 

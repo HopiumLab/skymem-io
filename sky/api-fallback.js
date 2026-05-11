@@ -84,6 +84,9 @@ async function generateResponse(systemPrompt, userMessage, options = {}) {
     maxTokens = 4096,
     onChunk = null,
     cacheSystem = true,
+    tools = null,           // Anthropic tool definitions (array)
+    toolHandlers = null,    // { [toolName]: async (input) => result }
+    maxToolIterations = 4,  // safety bound on the tool_use loop
   } = options;
 
   const anthropic = getClient();
@@ -108,13 +111,14 @@ async function generateResponse(systemPrompt, userMessage, options = {}) {
   }
 
   // Messages: accept string (single user turn) or full conversation array.
-  const messages = typeof userMessage === 'string'
+  let messages = typeof userMessage === 'string'
     ? [{ role: 'user', content: userMessage }]
-    : userMessage;
+    : userMessage.slice();
 
-  console.log(`[API] model=${model}${cacheSystem && Array.isArray(system) ? ' (cached system)' : ''}`);
-
+  // Streaming path: no tool_use support (streaming + tools needs different
+  // event handling; callers that want tools must use the non-streaming path)
   if (onChunk) {
+    console.log(`[API] model=${model}${cacheSystem && Array.isArray(system) ? ' (cached system, streaming)' : ' (streaming)'}`);
     let fullText = '';
     const stream = anthropic.messages.stream({ model, max_tokens: maxTokens, system, messages });
     for await (const event of stream) {
@@ -126,24 +130,85 @@ async function generateResponse(systemPrompt, userMessage, options = {}) {
     return fullText;
   }
 
-  const response = await anthropic.messages.create({ model, max_tokens: maxTokens, system, messages });
+  // Non-streaming path — with optional tool_use loop.
+  // The loop: call API → if response has tool_use blocks, execute each tool
+  // and append { role: 'user', content: [tool_result blocks] } → call API
+  // again. Repeat until no more tool_use blocks (or hit maxToolIterations).
+  const hasTools = Array.isArray(tools) && tools.length > 0 && toolHandlers;
+  let response = null;
+  let iteration = 0;
+  while (iteration < maxToolIterations) {
+    iteration += 1;
+    const apiParams = { model, max_tokens: maxTokens, system, messages };
+    if (hasTools) apiParams.tools = tools;
+    const tag = hasTools ? ` (tools: ${tools.length})` : '';
+    console.log(`[API] model=${model}${cacheSystem && Array.isArray(system) ? ' (cached system)' : ''}${tag}${iteration > 1 ? ` iter=${iteration}` : ''}`);
 
-  const text = response.content
-    .filter(block => block.type === 'text')
-    .map(block => block.text)
-    .join('');
+    response = await anthropic.messages.create(apiParams);
 
-  // Log cache stats — informative for monitoring cost reduction.
-  const usage = response.usage || {};
-  const cacheRead = usage.cache_read_input_tokens || 0;
-  const cacheWrite = usage.cache_creation_input_tokens || 0;
-  const inputTokens = usage.input_tokens || 0;
-  const outputTokens = usage.output_tokens || 0;
-  if (cacheRead > 0 || cacheWrite > 0) {
-    console.log(`[API] usage: in=${inputTokens} cache_read=${cacheRead} cache_write=${cacheWrite} out=${outputTokens}`);
-  } else {
-    console.log(`[API] usage: in=${inputTokens} out=${outputTokens}`);
+    // Log usage for THIS turn (each tool-use round counts separately)
+    const usage = response.usage || {};
+    const cacheRead = usage.cache_read_input_tokens || 0;
+    const cacheWrite = usage.cache_creation_input_tokens || 0;
+    const inputTokens = usage.input_tokens || 0;
+    const outputTokens = usage.output_tokens || 0;
+    if (cacheRead > 0 || cacheWrite > 0) {
+      console.log(`[API] usage: in=${inputTokens} cache_read=${cacheRead} cache_write=${cacheWrite} out=${outputTokens}`);
+    } else {
+      console.log(`[API] usage: in=${inputTokens} out=${outputTokens}`);
+    }
+
+    // End conditions
+    if (response.stop_reason !== 'tool_use' || !hasTools) break;
+    const toolUseBlocks = (response.content || []).filter((b) => b.type === 'tool_use');
+    if (toolUseBlocks.length === 0) break;
+
+    // Execute each tool call and build the tool_result content blocks
+    const toolResults = [];
+    for (const block of toolUseBlocks) {
+      const handler = toolHandlers[block.name];
+      let result;
+      let isError = false;
+      if (!handler) {
+        result = `Unknown tool: ${block.name}`;
+        isError = true;
+        console.warn(`[API] tool_use for unknown tool "${block.name}"`);
+      } else {
+        try {
+          const out = await handler(block.input || {});
+          result = typeof out === 'string' ? out : JSON.stringify(out ?? null);
+          console.log(`[API] tool_use ${block.name} → OK`);
+        } catch (e) {
+          result = e?.message || String(e);
+          isError = true;
+          console.error(`[API] tool_use ${block.name} → ERR: ${result}`);
+        }
+      }
+      toolResults.push({
+        type: 'tool_result',
+        tool_use_id: block.id,
+        content: result,
+        ...(isError ? { is_error: true } : {}),
+      });
+    }
+
+    // Append the assistant message AND the tool results
+    messages = [
+      ...messages,
+      { role: 'assistant', content: response.content },
+      { role: 'user', content: toolResults },
+    ];
   }
+
+  if (iteration >= maxToolIterations && response?.stop_reason === 'tool_use') {
+    console.warn(`[API] tool_use loop hit maxToolIterations=${maxToolIterations}; returning whatever text the model produced`);
+  }
+
+  // Extract text from the final response
+  const text = (response?.content || [])
+    .filter((b) => b.type === 'text')
+    .map((b) => b.text)
+    .join('');
 
   return text;
 }
