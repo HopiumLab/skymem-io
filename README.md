@@ -78,15 +78,39 @@ Drop-in for any MCP-compatible client (Claude Code, Cursor, Windsurf, Devin, Zed
 
 We ship to LOCOMO — the public benchmark from snap-research. 1,986 graded questions across 10 multi-turn conversations, 5 task categories (single-hop, multi-hop, temporal, open-domain, adversarial).
 
-**Current state (preliminary, full clean run in flight):**
+**Current state — full clean 10-of-10 aggregate, reproducible from this repo:**
 
-- Best individual conversation chunks (full stack, both prompt fixes, Cohere ON): **86.3% / 87.5%**
-- Last clean 7-of-10 aggregate (persona-only, MiniLM): 59.4%
-- Verified 90%+ aggregate run + reproducibility methodology: **in progress**
+| Run | Aggregate | Δ baseline | Run tag |
+|---|---|---|---|
+| T1 (baseline) | 66.82% | — | `t1-baseline` |
+| T3 v2 (verifier surgery + classifier broadening) | 69.23% | +2.41 | `t3fs-20260511-093306` |
+| T4e (classifier coverage gaps) | 69.84% | +0.61 | `t3fs-20260511-202406` |
+| **T4f (cognition router per-cat profiles)** | **70.75%** | **+0.91** | `t3fs-20260512-064522` |
 
-For comparison: Synthius-Mem 94.4% · ByteRover 92.2% · MemMachine 91.7% · Mem0 91.6% · Memori 81.95%.
+**T4f per-category breakdown:**
 
-We will publish the full clean run with token cost, latency, per-category breakdown, and 10 sample failure cases. Anyone with API keys can reproduce within ±1pp.
+| Cat | Volume | Score | vs T3 v2 |
+|---|---|---|---|
+| cat=1 single-hop | 14.2% | 44.33% | +3.55 |
+| cat=2 temporal | 16.2% | 59.50% | +1.87 |
+| cat=3 multi-hop | 4.8% | **50.00%** | +5.21 |
+| cat=4 open-domain | 42.3% | 74.91% | +1.07 |
+| cat=5 adversarial | 22.5% | 92.15% | -0.42 |
+
+**T5 (in progress)** — temporal-proximity scoring for cat=2 (the biggest remaining headroom). cat=2 spot-test shows +7-12 pp lift on the target conv. Full bench data pending.
+
+For competitor comparison context: Synthius-Mem 94.4% · ByteRover 92.2% · MemMachine 91.7% · Mem0 91.6% · Memori 81.95%. **We're explicit that we're below them today** — the path from 70.75% to 82-85% is in [`docs/COGNITION-ROUTER.md`](docs/COGNITION-ROUTER.md), and the methodology behind each lift is in the receipts at [`docs/T3-RESULTS.md`](docs/T3-RESULTS.md), [`docs/T4e-RESULTS.md`](docs/T4e-RESULTS.md), and [`docs/T4f-RESULTS.md`](docs/T4f-RESULTS.md).
+
+**Reproduce locally:**
+
+```bash
+git clone https://github.com/HopiumLab/skymem-io.git
+cd skymem-io && cp .env.example .env  # add ANTHROPIC_API_KEY + COHERE_API_KEY
+./install.sh
+docker exec -d sky-bridge bash /app/scripts/run-t3-fullstack.sh
+# After ~5.5h, summary lands in /app/bench/t3fs-<timestamp>-summary.json
+# Expected variance ±1pp.
+```
 
 ### Agent Drift Eval (our benchmark)
 

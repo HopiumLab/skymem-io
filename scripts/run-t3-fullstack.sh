@@ -71,17 +71,18 @@ for CONV in conv-26 conv-30 conv-41 conv-42 conv-43 conv-44 conv-47 conv-48 conv
     CHUNK_LOG="/app/bench/${RUN_TAG}-${CONV}-q${START}.log"
     echo "── ${CONV} q${START} start $(date -u +%H:%M:%S) ──" | tee -a "$LOG"
 
-    # T3 fix #1 (2026-05-11): NUCLEUS=OFF based on T6 ablation findings.
-    # The conv-43 ablation showed --nucleus=off gives +1.65 pp lift over baseline.
-    # Hypothesis: ±2-turn context expansion over-pads prompts with adjacent
-    # turns that don't help and sometimes confuse the answer generator
-    # (esp. on cat=4 open-domain where baseline 81/107 → no-nucleus 83/107).
-    # Validating on the full 10-conv bench in this run.
+    # T4c (2026-05-11): NUCLEUS=cat3only (architectural-fit revival).
+    # T3 v2 confirmed nucleus=off helped cat=4 by +4.16 pp, but the T6
+    # ablation showed nucleus helps cat=3 (multi-hop) by ~+1 pp. Bench-locomo
+    # now supports --nucleus=cat3only which expands ONLY when the question
+    # category is 3. This preserves the cat=4 win AND restores the cat=3 lift.
+    # Rule #4 applied: borrowed mechanic kept where it earns, disabled where
+    # our architecture (persona block) already provides the equivalent.
     SKY_EMBED_PROVIDER=cohere node --max-old-space-size="${BENCH_HEAP}" --expose-gc \
       /app/scripts/bench-locomo.js \
       --conv-id="$CONV" \
       --persona=on \
-      --nucleus=off \
+      --nucleus=cat3only \
       --verifier=on \
       --reformulate=on \
       --skip-ingest \
