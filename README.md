@@ -78,11 +78,22 @@ Drop-in for any MCP-compatible client (Claude Code, Cursor, Windsurf, Devin, Zed
 
 We ship to LOCOMO — the public benchmark from snap-research. 1,986 graded questions across 10 multi-turn conversations, 5 task categories (single-hop, multi-hop, temporal, open-domain, adversarial).
 
+**Recent progress** — 4 full LOCOMO runs over 48 hours, each with its mechanism documented:
+
+```
+May 10  T1 baseline                           66.82%
+May 11  T3 v2 (verifier surgery, prompt fix)  69.23%   +2.41 pp ─┐
+May 11  T4e (classifier coverage gaps)        69.84%   +0.61 pp  │  +3.93 pp
+May 12  T4f (cognition router per-cat)        70.75%   +0.91 pp ─┘  in 48 hours
+```
+
+Three of those lifts shipped on the same calendar day (May 11 morning → evening → May 12 morning). The pattern: each run earns its lift by isolating ONE mechanism, ablation-validating it on a target conversation, then committing only if the per-cat metric the mechanism targets actually moves. Speed comes from discipline — no global "throw mechanisms at it" sprints.
+
 **Current state — full clean 10-of-10 aggregate, reproducible from this repo:**
 
 | Run | Aggregate | Δ baseline | Run tag |
 |---|---|---|---|
-| T1 (baseline) | 66.82% | — | `t1-baseline` |
+| T1 (baseline) | 66.82% | — | `t3fs-20260510-202955` |
 | T3 v2 (verifier surgery + classifier broadening) | 69.23% | +2.41 | `t3fs-20260511-093306` |
 | T4e (classifier coverage gaps) | 69.84% | +0.61 | `t3fs-20260511-202406` |
 | **T4f (cognition router per-cat profiles)** | **70.75%** | **+0.91** | `t3fs-20260512-064522` |
