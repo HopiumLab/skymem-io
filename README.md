@@ -18,6 +18,83 @@ That's skyMem.
 
 ---
 
+## Why skyMem (vs alternatives)
+
+**The honest position:** Mem0, MemMachine, Synthius, ByteRover all score higher on LOCOMO today (91-94%). skyMem is at 70.75% and climbing. So why pick this?
+
+Because LOCOMO measures **recall on a static dataset**. Production AI breaks on things LOCOMO doesn't test: contradiction across sessions, stale beliefs not getting suppressed, no provenance when something goes wrong, no audit trail for compliance, fact retrieval that doesn't know who said what.
+
+**What we have that they don't:**
+
+| Feature | skyMem | Mem0 | MemMachine | Synthius | ByteRover | Letta | Zep |
+|---|---|---|---|---|---|---|---|
+| Cognitive domains (7 categories of facts) | ✓ | ✗ | ◐ | ✓ | ✗ | ✗ | ✗ |
+| Fact trajectories (confidence slope over time) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ |
+| Audit-grade observability (8 primitives) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Provenance + supersession + contradiction surfacing | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Verifier second-pass (catches hallucination) | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ |
+| 4 answer-shape modes (literal/list/temporal/multi-hop) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Per-category retrieval profiles (cognition router) | ✓ T4f | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| MCP server (17 tools, drop-in for Claude Code/Cursor) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Self-supervised confidence loop | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Behavioural pattern mining | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Open source + self-hosted (data stays local) | ✓ ELv2 | ✓ MIT | ✓ Apache | ✗ | ◐ | ✓ | ✓ |
+| Bring-your-own LLM keys (no SaaS lock-in) | ✓ | ◐ hosted | ✓ | ✗ | ◐ | ✓ | ✓ |
+
+Legend: ✓ shipped · ◐ partial · ✗ not present.
+
+Full per-system breakdown with reproducible citations: [`docs/comparison-honest.md`](docs/comparison-honest.md). If we're missing something a competitor does, it's logged there.
+
+**The question to ask:** is "flat memory + good retrieval" enough, or do you need **structured cognition + audit trail + observability**?
+
+- **You're building production AI agents** → you need contradiction surfacing, provenance, supersession. The 91% systems don't have these.
+- **You're shipping in regulated industries** (finance, health, legal) → audit-grade observability isn't optional. EU AI Act Articles 12 + 13 require it. We're the only system that ships it as a first-class primitive.
+- **You want to know WHY the AI answered the way it did** → `explain_retrieval`, `fact_trajectory`, `provenance_tree`, `decision_lineage` are all one MCP call away.
+- **You need pure recall on a benchmark** → today, Mem0 / MemMachine score higher. Honestly. We're working on it — see the progress section below.
+
+---
+
+## Design choices (the "why this, not something simpler?")
+
+Quick rationale for the 4 architectural decisions that drove the rest:
+
+### 1. Why a graph, not just vector embeddings?
+
+Vector search retrieves "similar text." It cannot traverse "John works at Y → Y is in industry Z → so John is probably in Z."
+
+Multi-hop reasoning (cat=3 on LOCOMO) needs the graph. Cat=3 was 44.79% in our T1 baseline. With graph traversal + typed edges + cognition router, it's now 50%. Flat-memory systems can't reach this — they don't have the substrate.
+
+### 2. Why structured cognition (7 cognitive domains), not flat fact lists?
+
+A flat "list of facts" treats `John lives in Brooklyn` and `John works at Pfizer` and `John's wife is named Kate` as equivalent strings. They're not.
+
+skyMem separates them into **identity / people / preferences / portfolio / active / goals / decisions** — seven cognitive domains. When a question is about "what does John think about X?", the retrieval prioritises the `active` + `decisions` domains. When it's "who is John's family?", it prioritises `people`. The persona block at the top of the prompt comes from this structure — the model sees curated facts grouped by relevance, not paraphrased noise.
+
+The 91% systems use flat memory. Per-category retrieval profiles (the T4f cognition router) require structured cognition to operate on. Same code on flat memory would have nothing to route.
+
+### 3. Why audit-grade observability as a first-class primitive?
+
+If your AI gives a customer the wrong refund amount, "the model hallucinated" is not a legally adequate answer. You need:
+
+- **Provenance**: which exact memory nodes informed this answer? (`provenance_tree`)
+- **Supersession**: was a contradicting belief overridden? When? Why? (`superseded_facts`)
+- **Trajectory**: was this belief getting more or less confident over time? (`fact_trajectory`)
+- **Audit log**: append-only, read-only event stream for compliance auditors. (`audit_log`)
+
+These aren't extras bolted on after — they're part of the data model. Every belief carries its provenance. Every supersession is logged. Every contradiction is detected and retained.
+
+EU AI Act Articles 12 + 13 will require this for "high-risk" AI systems by 2026. Most current memory systems would need a full rebuild to comply. skyMem is built for it from the ground up.
+
+### 4. Why bring-your-own-keys + self-hosted, not SaaS?
+
+Your conversations / decisions / personal facts are the most sensitive data you produce. They should not pass through someone else's servers.
+
+skyMem runs as a Docker compose stack on your machine. You bring your own Anthropic + Cohere keys. The graph, the embeddings, the audit log — all stays local. If you switch off the internet, the cognition stack still works (everything except the LLM calls).
+
+Mem0 / MemMachine / Letta / Zep are all open-source-able, so this isn't unique. But many "memory" startups are hosted-only with proprietary cores. We're explicit: source-available, Elastic License v2, self-host freely, no vendor lock-in.
+
+---
+
 ## What's in the box
 
 ### 13-layer cognition stack
