@@ -487,45 +487,6 @@ async function retrieveContext(query, scope, category = null) {
     }
   }
 
-  // T5 (2026-05-12): TEMPORAL-PROXIMITY scoring for cat=2.
-  // T4f cat=2 = 59.50% with the biggest remaining headroom of any cat with
-  // meaningful volume. Rule #4 receipt from T3 v2 named the mechanism:
-  // conv-42/43/44 cat=2 questions need retrieval that anchors on absolute
-  // dates, not pure semantic similarity. The session-date prefix on every
-  // turn ([YYYY-MM-DD HH:MM]) plus speaker date mentions are SEEN by the
-  // LLM but were not used as a RETRIEVAL signal. T5 adds a date-proximity
-  // booster to candidate scores before rerank — same code path, gated to
-  // cat=2, so cat=1/3/4/5 are unaffected.
-  //
-  // Mechanism: extract target date(s) from the question (regex for year,
-  // month-year, day-month-year); extract dates from each candidate's
-  // content; compute proximity (1.0 for same day, decays exponentially).
-  // Boost up to +0.4 per candidate (large enough to move a date-perfect
-  // match into top-5 even from mid-pool, small enough to not mask
-  // semantic mismatch on irrelevant turns).
-  //
-  // Pure additive: when category !== 2, no behavior change. When date
-  // parsing fails (no dates in question or content), boost is 0 — graceful.
-  if (category === 2 && candidatePool.length > 0) {
-    const targetDates = extractQuestionDates(query);
-    if (targetDates.length > 0) {
-      candidatePool = candidatePool.map(n => {
-        const contentDates = extractContentDates(n.content || '');
-        if (contentDates.length === 0) return n;
-        // Min distance (in days) between any target date and any content date
-        let minDistDays = Infinity;
-        for (const t of targetDates) for (const c of contentDates) {
-          const d = Math.abs(t.getTime() - c.getTime()) / 86400000;
-          if (d < minDistDays) minDistDays = d;
-        }
-        // Proximity score: 1.0 at 0 days, ~0.5 at 7 days, ~0.1 at 30 days
-        const proximity = Math.exp(-minDistDays / 14);
-        const boost = proximity * 0.4;
-        return { ...n, score: (n.score || 0) + boost, _temporalBoost: boost };
-      });
-    }
-  }
-
   // Locked at 12 (baseline) for non-list questions. Tuning experiments on 2026-05-08:
   //   topN=25 + stricter prompt: 22/50 (vs baseline ~20/50) — net-zero GLOBAL
   //   topN=15 + softer prompt:   16/50 — regression
@@ -536,28 +497,69 @@ async function retrieveContext(query, scope, category = null) {
   //
   // T4b (2026-05-11): list-shape fan-out preserved.
   // T4f (2026-05-12): RERANK_PROFILE — per-cat top-N.
-  // T4e bench showed cat=3 lift (+3.13) sustained but cat=5 -0.87 from
-  // narrow context. Cognition router thesis (docs/COGNITION-ROUTER.md):
+  // T6 (2026-05-13): cat=4 explicit profile — bump from 12 to 16.
+  //
+  // Rationale per docs/T5-RESULTS.md § 4 "cat=4 is volatile — that
+  // volatility is the signal":
+  //
+  //   Sprint  cat=4 score  Δ vs prev
+  //   T3 v2   73.84%       —
+  //   T4e     74.20%       +0.36
+  //   T4f     74.91%       +0.71  ← biggest aggregate contributor
+  //   T5      73.60%       −1.31  ← dominated the regression
+  //
+  // cat=4 swings ±0.7-1.3 pp per sprint on changes that DON'T target it.
+  // At 42.3% volume, cat=4 movement = aggregate movement. Treating cat=4
+  // at TOPN=12 was reading volatility as noise. T6 bumps to 16 to give
+  // open-domain questions more context candidates to reason from. The
+  // additional 4 candidates per query are then filtered by the same
+  // Cohere rerank — so noise candidates still get demoted, but the
+  // "borderline good" candidates that would have been cut at 12 now
+  // make it through.
+  //
+  // Profile (T6):
   //   cat=1 — literal, narrow exact evidence → 12
   //   cat=2 — temporal, focused evidence → 12
-  //   cat=3 — multi-hop, more cross-turn context needed → 15
-  //   cat=4 — open-domain, broad recall (or 25 for list-shape) → 12/25
+  //   cat=3 — multi-hop, more cross-turn context → 15 (T4f, durable lever)
+  //   cat=4 — open-domain, broader recall → 16 (T6, was 12; or 25 for list-shape)
   //   cat=5 — adversarial, broad grounding + contradiction surface → 20
-  // List-shape (T4b) overrides cat=1/4 to 25; cat=3 and cat=5 keep their
-  // profile values regardless of shape (their grounding need dominates).
+  //
+  // List-shape override: cat=1/4 list questions still get TOPN=25 (T4b
+  // list fan-out, validated). cat=3/5 keep their profile (cross-turn /
+  // grounding needs dominate over list semantics).
   const shape = classifyAnswerShape(query, category);
-  const RERANK_PROFILE = { 1: 12, 2: 12, 3: 15, 4: 12, 5: 20 };
+  const RERANK_PROFILE = { 1: 12, 2: 12, 3: 15, 4: 16, 5: 20 };
   let RERANK_TOPN = RERANK_PROFILE[category] ?? 12;
-  // T4b list fan-out applies when shape='list' AND cat=1/4 (the cats where
-  // list answers are common). Cat=3/5 keep their profile (cross-turn /
-  // grounding needs).
   if (shape === 'list' && (category === 1 || category === 4)) {
     RERANK_TOPN = 25;
   }
+
+  // T7a (2026-05-13): MMR diversity selection for cat=4 non-list queries.
+  // Per docs/FAILURE-TAXONOMY-T4F.md, cat=4 has D+C+E ~equally distributed
+  // failure modes. T6 (RERANK_PROFILE 12→16) targeted C alone and failed
+  // its 3-conv spot-test (2/3 PASS = locked-protocol FAIL). T7a addresses
+  // the C bucket specifically: similarity-collapse where Cohere rerank's
+  // top-N includes 3-4 near-identical candidates, starving context of
+  // bridging facts.
+  //
+  // Mechanism: rerank to a WIDER pool (RERANK_TOPN * 1.5), then apply MMR
+  // to pick the final RERANK_TOPN that balances relevance against mutual
+  // diversity. Token-level Jaccard as the diversity metric (no extra LLM
+  // calls, deterministic).
+  //
+  // Gated: cat=4 AND non-list (list-shape uses T4b fan-out at TOPN=25).
+  // Other cats untouched.
+  const USE_MMR_FOR_CAT4 = (category === 4 && shape !== 'list');
+  const RERANK_FETCH = USE_MMR_FOR_CAT4 ? Math.min(candidatePool.length, Math.round(RERANK_TOPN * 1.5)) : RERANK_TOPN;
+  const MMR_LAMBDA = 0.5;
+
   let topNodes;
   if (rerank.isAvailable() && candidatePool.length > 0) {
     try {
-      topNodes = await rerank.rerank(query, candidatePool, { topN: RERANK_TOPN });
+      const wideRerank = await rerank.rerank(query, candidatePool, { topN: RERANK_FETCH });
+      topNodes = USE_MMR_FOR_CAT4
+        ? selectWithMMR(wideRerank, RERANK_TOPN, MMR_LAMBDA)
+        : wideRerank;
     } catch (_) {
       topNodes = candidatePool.sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, RERANK_TOPN);
     }
@@ -616,85 +618,105 @@ async function retrieveContext(query, scope, category = null) {
  *   - 'inference' — yes/no, opinion, "would X" / "is Y likely" / "what kind"
  *                   → reasoning-driven answer.
  */
-// ── T5 temporal-proximity helpers ──────────────────────────────
-// Used by retrieveContext() to score cat=2 candidates by date alignment
-// with the question's implied date(s). See T5 comment in retrieveContext.
+// ── T7a (2026-05-13): MMR diversity selection for cat=4 ──────────
+// Maximal Marginal Relevance — re-rank a wider candidate pool to balance
+// relevance against diversity, picking top-N candidates that are HIGH
+// relevance but LOW similarity to each other.
+//
+// MMR(q, D, lambda) = argmax_d in D [lambda * Sim1(q, d) - (1-lambda) * max_d'_in_selected Sim2(d, d')]
+//
+// We use Cohere rerank scores as Sim1 (relevance) and token-level Jaccard
+// as Sim2 (similarity). Pure additive — only invoked for cat=4 non-list
+// questions per docs/FAILURE-TAXONOMY-T4F.md analysis (cat=4 D+C+E split
+// equally; MMR addresses the C bucket = retrieval-miss-via-similarity-
+// collapse where rerank's top-N clusters semantically).
+//
+// lambda = 0.5 is the standard balance. Lower = more diverse, higher =
+// more relevance-faithful. We start at 0.5 and tune via spot-test.
 
-const MONTH_NAMES = {
-  january: 0, jan: 0, february: 1, feb: 1, march: 2, mar: 2, april: 3, apr: 3,
-  may: 4, june: 5, jun: 5, july: 6, jul: 6, august: 7, aug: 7,
-  september: 8, sep: 8, sept: 8, october: 9, oct: 9, november: 10, nov: 10,
-  december: 11, dec: 11,
-};
+const MMR_TOKEN_RE = /\b[a-z0-9]{3,}\b/g;
+const MMR_STOP = new Set([
+  'the','and','but','why','what','how','when','where','who','this','that',
+  'with','from','have','has','had','just','like','will','would','could',
+  'should','about','than','they','their','there','then','some','all','any',
+  'for','was','were','are','his','her','him','she','its','you','your','too',
+  'been','being','does','did','done','only','one','two','more','most','many',
+  'not','can','said','say','says','told','tell','really','very','also',
+]);
 
-// Extract candidate dates from a string. Catches:
-//   - "2023-10-22"             (ISO date)
-//   - "October 22, 2023"       (month-day-year)
-//   - "22 October 2023"        (day-month-year)
-//   - "October 2023"           (month-year only — defaults to day 15)
-//   - "2023"                   (year only — defaults to mid-year, low confidence)
-// Returns Date[] (UTC).
-function parseDatesFromText(text) {
-  if (!text || typeof text !== 'string') return [];
-  const dates = [];
-  const t = text.toLowerCase();
-  // ISO YYYY-MM-DD
-  const isoRe = /\b(20\d{2})-(\d{1,2})-(\d{1,2})\b/g;
-  let m;
-  while ((m = isoRe.exec(t)) !== null) {
-    const y = +m[1], mo = +m[2] - 1, d = +m[3];
-    if (mo >= 0 && mo < 12 && d >= 1 && d <= 31) dates.push(new Date(Date.UTC(y, mo, d)));
+function mmrTokenize(text) {
+  if (!text || typeof text !== 'string') return new Set();
+  const toks = (text.toLowerCase().match(MMR_TOKEN_RE) || []).filter(t => !MMR_STOP.has(t));
+  return new Set(toks);
+}
+
+function mmrJaccard(setA, setB) {
+  if (setA.size === 0 || setB.size === 0) return 0;
+  let inter = 0;
+  for (const t of setA) if (setB.has(t)) inter++;
+  const union = setA.size + setB.size - inter;
+  return union > 0 ? inter / union : 0;
+}
+
+/**
+ * Pick top-N candidates via MMR — high relevance, low mutual similarity.
+ * Operates over a wider pool than the final top-N for headroom.
+ *
+ * @param {Array} candidates  — already sorted desc by rerank/relevance score
+ * @param {number} n           — desired final count
+ * @param {number} lambda      — 0.5 balanced; 0=pure diversity; 1=pure relevance
+ * @returns {Array}            — n picked candidates in MMR order (highest-MMR first)
+ */
+function selectWithMMR(candidates, n, lambda = 0.5) {
+  if (!candidates || candidates.length === 0) return [];
+  if (candidates.length <= n) return candidates;
+
+  // Precompute token sets per candidate (avoid re-tokenizing inside the loop)
+  const tokens = candidates.map(c => mmrTokenize(c.content || ''));
+  const relevanceOf = (i) => {
+    const c = candidates[i];
+    if (typeof c.rerankScore === 'number') return c.rerankScore;
+    if (typeof c.score === 'number') return c.score;
+    return 0;
+  };
+
+  const selected = [];
+  const selectedIndices = new Set();
+
+  // Step 1: pick the highest-relevance candidate
+  let firstIdx = 0;
+  let firstRel = relevanceOf(0);
+  for (let i = 1; i < candidates.length; i++) {
+    const r = relevanceOf(i);
+    if (r > firstRel) { firstRel = r; firstIdx = i; }
   }
-  // "month day, year" e.g. "october 22, 2023" or "oct 22 2023"
-  const mdyRe = /\b(january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|sept|october|oct|november|nov|december|dec)\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(20\d{2})\b/g;
-  while ((m = mdyRe.exec(t)) !== null) {
-    const mo = MONTH_NAMES[m[1]]; const d = +m[2]; const y = +m[3];
-    if (mo !== undefined && d >= 1 && d <= 31) dates.push(new Date(Date.UTC(y, mo, d)));
-  }
-  // "day month year" e.g. "22 october 2023" or "22nd oct, 2023"
-  const dmyRe = /\b(\d{1,2})(?:st|nd|rd|th)?\s+(january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|sept|october|oct|november|nov|december|dec)\.?,?\s+(20\d{2})\b/g;
-  while ((m = dmyRe.exec(t)) !== null) {
-    const d = +m[1]; const mo = MONTH_NAMES[m[2]]; const y = +m[3];
-    if (mo !== undefined && d >= 1 && d <= 31) dates.push(new Date(Date.UTC(y, mo, d)));
-  }
-  // "month year" e.g. "october 2023" (no day) — anchor to day 15
-  const myRe = /\b(january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|sept|october|oct|november|nov|december|dec)\.?,?\s+(20\d{2})\b/g;
-  while ((m = myRe.exec(t)) !== null) {
-    // Skip if already captured by mdyRe / dmyRe (heuristic: only push if no nearby digit)
-    const before = t.slice(Math.max(0, m.index - 4), m.index);
-    if (/\d/.test(before)) continue;
-    const mo = MONTH_NAMES[m[1]]; const y = +m[2];
-    if (mo !== undefined) dates.push(new Date(Date.UTC(y, mo, 15)));
-  }
-  // Year-only as last resort, anchor to July 1 (mid-year). Lower precision
-  // but lets year-only questions still match year-only content.
-  if (dates.length === 0) {
-    const yRe = /\b(20\d{2})\b/g;
-    while ((m = yRe.exec(t)) !== null) {
-      const y = +m[1];
-      if (y >= 2018 && y <= 2030) dates.push(new Date(Date.UTC(y, 6, 1)));
+  selected.push(candidates[firstIdx]);
+  selectedIndices.add(firstIdx);
+
+  // Steps 2..n: MMR scoring
+  while (selected.length < n) {
+    let bestIdx = -1;
+    let bestMmr = -Infinity;
+    for (let i = 0; i < candidates.length; i++) {
+      if (selectedIndices.has(i)) continue;
+      const rel = relevanceOf(i);
+      // Max Jaccard against already-selected
+      let maxSim = 0;
+      for (const j of selectedIndices) {
+        const sim = mmrJaccard(tokens[i], tokens[j]);
+        if (sim > maxSim) maxSim = sim;
+      }
+      const mmr = lambda * rel - (1 - lambda) * maxSim;
+      if (mmr > bestMmr) {
+        bestMmr = mmr;
+        bestIdx = i;
+      }
     }
+    if (bestIdx === -1) break;
+    selected.push(candidates[bestIdx]);
+    selectedIndices.add(bestIdx);
   }
-  return dates;
-}
-
-// Question-side: same parser, but limited to "when" / "in" / "during" /
-// "since" / "for how long" contexts. Returns target Date[].
-function extractQuestionDates(question) {
-  return parseDatesFromText(question || '');
-}
-
-// Content-side: parse turn content for dates. The session-prefix
-// "[YYYY-MM-DD HH:MM]" is the most reliable signal — it's always present
-// and accurate. Speaker mentions ("we met on June 15") are secondary.
-function extractContentDates(content) {
-  if (!content) return [];
-  // Session prefix first — strongest signal
-  const prefixMatch = content.match(/\[(\d{4}-\d{1,2}-\d{1,2})\s/);
-  const prefixDate = prefixMatch ? parseDatesFromText(prefixMatch[1]) : [];
-  // Plus any in-content dates (speaker absolute mentions)
-  const bodyDates = parseDatesFromText(content);
-  return [...prefixDate, ...bodyDates];
+  return selected;
 }
 
 function classifyAnswerShape(question, category) {
@@ -1034,8 +1056,71 @@ If the transcript names no relevant items, reply exactly: No information availab
 
 Conversation transcript:
 ${context}`;
+  } else if (category === 4) {
+    // T7b (2026-05-13): CAT=4 GROUNDED MODE.
+    //
+    // Per docs/FAILURE-TAXONOMY-T4F.md, cat=4's failure distribution is:
+    //   D = 60 (retrieved but LLM ignored evidence)  ← THIS PROMPT TARGETS
+    //   C = 52 (indexed but not retrieved — addressed by T7a MMR)
+    //   E = 49 (used but wrong answer style — addressed by T7c)
+    //
+    // The D bucket pattern: the right evidence IS in the context, but the
+    // LLM produces an answer that:
+    //   - Picks the wrong nearby fact (similar entity, wrong relationship)
+    //   - Synthesizes when it should be quoting
+    //   - Hedges into "No information available" when evidence IS present
+    //   - Echoes the question premise rather than the evidence
+    //
+    // T7b system prompt enforces GROUNDING — every claim must trace to
+    // specific evidence in the retrieved context. Few-shot examples show
+    // "evidence → answer" mapping concretely. Stacks additively with T7a
+    // MMR (which feeds it more diverse candidates).
+    systemPrompt = `You are answering an open-domain question grounded in a long-form conversation transcript.
+
+CRITICAL — GROUND EVERY CLAIM:
+Each fact in your answer must be directly supported by the CONVERSATION EVIDENCE below.
+If the evidence doesn't support a claim, OMIT it. Do not synthesize, infer, or use outside knowledge.
+The transcript IS the source of truth.
+
+ANSWER FORMAT:
+- Direct concise answer. 1-2 short sentences max for most questions; single phrase if possible.
+- Use the SAME nouns and phrasing the speakers used (don't paraphrase entities or actions).
+- NO preamble: never "Based on the transcript", "Looking at the conversation", "The transcript shows".
+- NO speculation or hedging beyond what evidence states.
+- NO markdown bullets, numbering, or bold.
+
+WHEN TO ANSWER vs ABSTAIN:
+- If the evidence DIRECTLY supports the answer: provide it concisely.
+- If the evidence partially supports an answer (related but not direct): state the supported part only.
+- If the evidence has NO bearing on the question subject: reply "No information available".
+- Do NOT abstain when the evidence is there but the answer would require minor paraphrase — paraphrase carefully and answer.
+
+YES examples:
+  Q: "What does Caroline do for work?"
+  Evidence: "[2023-04-15] Caroline: I just got promoted to senior counselor at the women's shelter."
+  ✓ Good answer: "senior counselor at a women's shelter"
+  ✗ Bad answer: "Based on the transcript, Caroline works as a senior counselor at a women's shelter."
+
+  Q: "Where did the family vacation last year?"
+  Evidence: "[2023-08-10] Andrew: We had such a great time in Maine, the kids loved the beach."
+  ✓ Good answer: "Maine"
+  ✗ Bad answer: "It seems they went somewhere nice last summer." (echoes question premise, ignores 'Maine')
+
+  Q: "What hobby does Melanie share with her daughter?"
+  Evidence: "[2023-09-22] Melanie: Sarah and I have been doing pottery class together every Saturday."
+  ✓ Good answer: "pottery"
+  ✗ Bad answer: "art and crafts" (paraphrase too generic — speaker said 'pottery')
+
+NO example (correctly abstaining):
+  Q: "What does Caroline think about politics?"
+  Evidence: turns about Caroline's pottery class, dog adoption, work promotion.
+  ✓ Good answer: "No information available"
+
+Conversation transcript:
+${context}`;
   } else {
     // INFERENCE MODE — yes/no, would-X, opinion, multi-step reasoning.
+    // Used by cat=5 (always 'inference' shape) and any other 'inference' fallback.
     systemPrompt = `You are answering an inference or yes/no question about a long-form conversation. Reason from what the speakers said.
 
 RULES:
