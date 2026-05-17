@@ -5,7 +5,7 @@
 # native allocator (the thing V8 GC can't reach).
 #
 # Usage:
-#   docker exec sky-bridge bash /app/scripts/run-locomo-chunked.sh <conv-id> <total-q> [chunk-size] [run-tag]
+#   docker exec skymem bash /app/scripts/run-locomo-chunked.sh <conv-id> <total-q> [chunk-size] [run-tag]
 #
 # Example:
 #   bash run-locomo-chunked.sh conv-43 242 80 chunk-43

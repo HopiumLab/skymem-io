@@ -8,31 +8,38 @@ This page exists specifically so the Reddit / HN / /r/MachineLearning comment th
 
 ## At a glance — capability matrix
 
+**Audit history:** matrix corrected 2026-05-15 after a reviewer flagged that Zep/Graphiti's substrate features were understated. Zep ships bitemporal validity, episode provenance, contradiction handling, and an MCP server at production scale — all corrected below. Where this matrix was wrong before, it's marked. The honest position is now: **skyMem and Zep share a temporal-graph substrate; skyMem adds an opinionated cognition stack on top.**
+
 | Capability | skyMem | Mem0 (new) | MemMachine v0.2 | Synthius-Mem | ByteRover 2.0 | Memori | Letta (MemGPT) | Zep / Graphiti |
 |---|---|---|---|---|---|---|---|---|
-| **Cognitive domains** (structured fact bank by category) | ✓ 7 domains | ✗ flat memory | ◐ episodic + profile | ✓ 6 domains | ✗ flat markdown | ✗ flat | ✗ flat | ✗ flat |
+| **Bitemporal validity windows** (valid_from / valid_to / invalid_at) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ production-tested, ICLR 2026 |
+| **Episode / provenance tracing** (every fact traces to source) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ |
+| **Contradiction detection** (active invalidation when evidence conflicts) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ |
+| **MCP server included** | ✓ 17 tools | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ 4 tools (Nov 2025) |
+| **Cognitive domains** (structured fact bank by category) | ✓ 7 domains | ✗ flat memory | ◐ episodic + profile | ✓ 6 domains | ✗ flat markdown | ✗ flat | ✗ flat | ✗ flat graph |
 | **Persona-grade fact retrieval** (vs raw turn retrieval) | ✓ | ✗ | ◐ profile only | ✓ CategoryRAG | ✗ | ✗ | ✗ | ✗ |
-| **Trajectories** (slope/velocity per fact over revisions) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ temporal graph |
+| **Trajectories with slope/velocity** (fact-confidence math over revisions) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ validity windows only |
 | **Network persona auto-promotion** (entities graduate from significance) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | **Chat-tagging attribution** (auto-attribute messages to entities) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | **Self-supervised confidence loop** (outcome → fact-confidence) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | **Behavioural pattern mining** (predictive rules from history) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| **Multi-axis temporal metadata** (event vs mention vs ingest time) | ✓ | ✗ | ◐ partial | ✗ | ✗ | ✗ | ✗ | ◐ event-time only |
+| **Multi-axis temporal metadata** (event + mention + ingest time) | ✓ | ✗ | ◐ partial | ✗ | ✗ | ✗ | ✗ | ◐ event + ingest (bitemporal) |
 | **Typed relational edges** (subject-predicate-object triples) | ✓ controlled vocab | ✗ | ◐ Neo4j integration | ✗ | ✓ markdown-curated | ◐ entity table | ✗ | ✓ Graphiti |
 | **Verifier pass** (second LLM checks evidence support) | ✓ | ✗ | ✗ | ✓ — their pattern | ✗ | ✗ | ✗ | ✗ |
 | **Nucleus expansion** (±N adjacent turns per retrieved node) | ✓ — their pattern | ✗ | ✓ — invented this | ✗ | ✗ | ✗ | ✗ | ✗ |
-| **Cross-attention reranker** | ✓ Cohere v3.5 | ◐ via search | ✓ cross-encoder | ✗ | ✗ | ✗ | ✗ | ✗ |
-| **Multi-source retrieval** (parallel signal fusion) | ✓ 5 signals | ✓ 3 signals | ✓ 2 signals | ✓ CategoryRAG | ✓ 5 tiers | ✓ multi-agent | ◐ | ◐ |
+| **Cross-attention reranker** | ✓ Cohere v3.5 | ◐ via search | ✓ cross-encoder | ✗ | ✗ | ✗ | ✗ | ◐ hybrid search |
+| **Multi-source retrieval** (parallel signal fusion) | ✓ 5 signals | ✓ 3 signals | ✓ 2 signals | ✓ CategoryRAG | ✓ 5 tiers | ✓ multi-agent | ◐ | ✓ semantic+BM25+graph |
 | **Agentic query decomposition** | ✓ Haiku planner | ✗ | ✗ | ✗ | ◐ tier 4 | ✓ analyse step | ✗ | ✗ |
 | **Answer-shape modes** (literal / list / temporal / multihop) | ✓ 4 modes | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | **Retrieval-miss reformulation** | ✓ | ✗ | ✗ | ✗ | ✓ tier 4 | ✗ | ✗ | ✗ |
+| **Audit-grade observability primitives** | ✓ 8 (explain / trajectory / contradictions / provenance / superseded / decay / lineage / log) | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ 2 (episode + provenance) |
 | **Open source / self-host** | ELv2 source-available | MIT | Apache | proprietary | open weights | MIT | Apache | Apache |
-| **MCP server included** | ✓ 8 tools | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| **Public LOCOMO score** | TBD 75-90% target | 91.6% | 91.7% | 94.4% | 92.2% | 81.95% | not disclosed | ~75.1% |
+| **Production maturity** | early (<1yr) | mature | published | mature | mature | mature | mature | mature, ICLR 2026 |
+| **Public LOCOMO score** | 70.75% (stuck May 2026) | 91.6% | 91.7% | 94.4% | 92.2% | 81.95% | not disclosed | ~75.1% |
 
 Legend: ✓ shipped / ◐ partial / ✗ not present.
 
-**Honest read:** Synthius leads on the LOCOMO score. We lead on the architectural surface area — every "✓" cell where they have a "✗" is a feature they don't ship. That's the trade.
+**Honest read after the audit:** The temporal-graph substrate (bitemporal validity, episode provenance, contradiction handling, MCP) is **shared with Zep**, not unique to skyMem. The LOCOMO recall leaders (Synthius / ByteRover / MemMachine / Mem0) don't ship that substrate at all. What's genuinely unique to skyMem is the **cognition stack layered on top**: 7-domain psychographic decomposition, slope-based trajectory math, self-supervised confidence loop, behavioural pattern mining, network persona auto-promotion, chat-tagging attribution, verifier second-pass, 4 answer-shape modes, per-category retrieval profiles. That's the trade: we're younger and less battle-tested than Zep on the substrate; we ship more opinionated layers above it.
 
 ---
 
@@ -196,28 +203,40 @@ Legend: ✓ shipped / ◐ partial / ✗ not present.
 
 **Honest gap we have on them:** the persona / trajectories / network / attribution layer.
 
-### Zep / Graphiti
+### Zep / Graphiti (the closest architectural comparable)
 
-**What they do well:**
-- ~75.1% on LOCOMO
-- Temporal knowledge graph is THE thing they do; well-developed
-- Apache 2.0
-- Production-ready cloud offering
+**What they do well — and where the matrix originally understated them:**
+- Bitemporal validity windows (valid_from / valid_to / invalid_at) — production-tested, peer-reviewed at ICLR 2026
+- Episode / provenance tracing as a first-class primitive — every fact traces back to source
+- Contradiction handling via LLM edge comparison + active invalidation
+- MCP server (`add_episode`, `search_facts`, `search_nodes`, `get_episodes`) — v1.0 since November 2025, deployed at scale via Claude Desktop / Cursor / Windsurf
+- Hybrid retrieval (semantic + BM25 + graph traversal)
+- Production deployments in CRM, compliance, healthcare workflows
+- Apache 2.0 licensed
+- Real funding, real team, real adoption (thousands of GitHub stars)
+- LOCOMO ~75.1% (currently above skyMem's 70.75% on this specific benchmark)
 
-**What they don't have that we do:**
-- Higher LOCOMO score (we project above their published)
-- 7 cognitive domains (theirs is graph-only, no domain organisation)
-- Trajectories with confidence math (theirs is temporal but not slope-based)
-- Network auto-promotion
-- Chat-tagging
-- Self-supervised loop
-- Behavioural patterns
-- Verifier pass
-- 4-shape modes
+**Where the README/matrix was wrong before:** earlier versions of this page marked Zep ✗ on contradiction surfacing, provenance, supersession, and MCP server. **All four were wrong** — Zep ships all of these. Corrected 2026-05-15. We owe the credit publicly because the temporal-graph substrate that skyMem builds on is the same one Zep already proved out.
 
-**Honest gap they have on us:** their temporal knowledge graph is more battle-tested in production. Our typed-edges module is younger.
+**What they don't ship that skyMem does (the genuine differentiation, narrower than previously claimed):**
+- 7-domain psychographic decomposition (their graph is flat — entity nodes without cognitive-domain organisation)
+- Trajectories with slope/velocity math (theirs is temporal validity, ours adds confidence-slope analysis on top)
+- Self-supervised confidence loop (outcome → fact-confidence feedback)
+- Behavioural pattern mining (nightly Sonnet sweep extracting predictive rules)
+- Network persona auto-promotion (entities graduate from significance thresholds)
+- Chat-tagging attribution (auto-attribute every message to entities)
+- Verifier second-pass (adapted from Synthius — Zep doesn't have this either)
+- 4 answer-shape modes (literal / list / temporal / multihop routing)
+- Per-category retrieval profiles (the T4f cognition router)
+- 8 audit-grade observability primitives vs Zep's 2 (episode + provenance)
 
-**Honest gap we have on them:** the persona + trajectories + attribution combination.
+**Honest gap they have on us:** the temporal-graph substrate is more mature, more battle-tested, more cited, and ranks higher on LOCOMO right now. If you want production-tested temporal knowledge graph today, Zep is the more conservative pick.
+
+**Honest gap we have on them:** the cognition stack layered above the substrate. None of the seven layered features above are in Zep's roadmap as far as we can tell.
+
+**The realistic positioning:** skyMem is an **opinionated implementation** of the same core idea Zep ships, with more layers and a younger codebase. Pick on whether the opinion is what you want, not whether the substrate is unique — it isn't.
+
+**The question to ask yourself:** if you need production-tested temporal knowledge graph with provenance + bitemporal validity, Zep is more mature today. If you want that substrate **plus** an opinionated cognition stack (7 domains, slope trajectories, confidence loop, behavioural patterns, entity graduation, chat-tagging, verifier, answer-shape routing), skyMem is the only system shipping that combination — at the cost of less battle-testing.
 
 ---
 
@@ -231,7 +250,7 @@ This list is on purpose. Honesty bar.
 | **Mem0** | Distribution. 20k+ GitHub stars. Multi-language SDKs. Hosted offering. | We're 4 days old. Distribution comes after the launch. |
 | **MemMachine** | Academic credibility. Nucleus expansion paper. | We adapted their nucleus pattern; we cite them. The architecture trade-off is theirs is purer, ours is wider. |
 | **Letta** | Mature agent framework integration. | We expose MCP for AI builders, which serves a similar purpose without the LangGraph-style framework lock-in. |
-| **Zep** | Production-grade temporal knowledge graph. | Our typed-edges module is younger. Zep has been deployed at scale; we haven't yet. |
+| **Zep** | Production-grade temporal knowledge graph + bitemporal validity + episode provenance + 4-tool MCP server (Nov 2025) + ICLR 2026 paper. Substrate is more mature than ours. | Our typed-edges module is younger; their bitemporal model is the published reference. We add cognition layers on top, not in the substrate itself. |
 | **ByteRover** | Speed on cache hits. No-embedding deployment. | Different design philosophy — we use embeddings. Theirs is interesting for cost-constrained edge deployments. |
 
 **This list tells the truth.** No one wins on every dimension. We win on architectural surface area + self-improvement loops + the dual-face brand (Sky as PA + skyMem as engine). They win on score, distribution, maturity, or specific clever mechanics. Pick the trade-off that matches your problem.
@@ -274,7 +293,7 @@ This is the same decision Elastic, Redis, MongoDB, and increasingly more open-co
 
 ### "Solo founder, why should I trust this?"
 
-Eat-our-own-dogfood: the user's actual WhatsApp + life context has been running on this system since April 2026. Every commit is dogfooded immediately. The architecture isn't theoretical — it's lived. The 13 layers each earn their place under a daily-driver workload before they ship.
+Eat-our-own-dogfood: Ross's actual WhatsApp + life context has been running on this system since April 2026. Every commit is dogfooded immediately. The architecture isn't theoretical — it's lived. The 13 layers each earn their place under a daily-driver workload before they ship.
 
 That said: the project is young. The pitch deck Section 11 explicitly lists this as a limitation. Cold-start, scale, multi-tenant, multi-language all need real production usage to harden.
 

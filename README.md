@@ -20,37 +20,52 @@ That's skyMem.
 
 ## Why skyMem (vs alternatives)
 
-**The honest position:** Mem0, MemMachine, Synthius, ByteRover all score higher on LOCOMO today (91-94%). skyMem is at 70.75% and climbing. So why pick this?
+**The honest position:** Mem0, MemMachine, Synthius, ByteRover score higher on LOCOMO today (91-94%). skyMem is at 70.75%. Zep/Graphiti — the closest architectural comparable — is at ~75% on LOCOMO but is more mature on the temporal foundation we share (bitemporal validity, episode tracing, contradiction handling all shipped at production scale, ICLR 2026 paper).
 
-Because LOCOMO measures **recall on a static dataset**. Production AI breaks on things LOCOMO doesn't test: contradiction across sessions, stale beliefs not getting suppressed, no provenance when something goes wrong, no audit trail for compliance, fact retrieval that doesn't know who said what.
+So why pick skyMem?
 
-**What we have that they don't:**
+LOCOMO measures **recall on a static dataset**. The bigger story is what runs on top of the temporal-graph substrate. **skyMem is an opinionated cognition stack** layered on top of the same substrate Zep ships: psychographic decomposition into 7 cognitive domains, fact trajectories with slope analysis, a self-supervised confidence loop, behavioural-pattern mining, entity auto-promotion, chat-tagging attribution, a verifier second-pass, and per-category retrieval profiles. That stack is ours; the substrate is shared.
 
-| Feature | skyMem | Mem0 | MemMachine | Synthius | ByteRover | Letta | Zep |
+**Honest comparison matrix:**
+
+| Capability | skyMem | Mem0 | MemMachine | Synthius | ByteRover | Letta | Zep / Graphiti |
 |---|---|---|---|---|---|---|---|
-| Cognitive domains (7 categories of facts) | ✓ | ✗ | ◐ | ✓ | ✗ | ✗ | ✗ |
-| Fact trajectories (confidence slope over time) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ |
-| Audit-grade observability (8 primitives) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| Provenance + supersession + contradiction surfacing | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| Verifier second-pass (catches hallucination) | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ |
-| 4 answer-shape modes (literal/list/temporal/multi-hop) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| Per-category retrieval profiles (cognition router) | ✓ T4f | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| MCP server (17 tools, drop-in for Claude Code/Cursor) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| Self-supervised confidence loop | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| Behavioural pattern mining | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| Open source + self-hosted (data stays local) | ✓ ELv2 | ✓ MIT | ✓ Apache | ✗ | ◐ | ✓ | ✓ |
-| Bring-your-own LLM keys (no SaaS lock-in) | ✓ | ◐ hosted | ✓ | ✗ | ◐ | ✓ | ✓ |
+| **Bitemporal validity windows** (supersession) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ production |
+| **Provenance / episode tracing** | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ |
+| **Contradiction detection** | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ |
+| **MCP server** | ✓ 17 tools | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ 4 tools |
+| **Cognitive domains** (7 categories of facts) | ✓ | ✗ | ◐ | ✓ 6 | ✗ | ✗ | ✗ |
+| **Fact trajectories** (slope/velocity over time) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ validity only |
+| **Observability primitives** (decision lineage, trajectory, decay) | ✓ 8 | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ 2 (episode + provenance) |
+| **Verifier second-pass** (catches hallucination) | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ |
+| **4 answer-shape modes** (literal/list/temporal/multi-hop) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| **Per-category retrieval profiles** (cognition router) | ✓ T4f | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| **Self-supervised confidence loop** | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| **Behavioural pattern mining** | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| **Network persona auto-promotion** | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| **Chat-tagging attribution** | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| **Open source + self-hosted** | ✓ ELv2 | ✓ MIT | ✓ Apache | ✗ | ◐ | ✓ | ✓ Apache |
+| **Bring-your-own LLM keys** | ✓ | ◐ hosted | ✓ | ✗ | ◐ | ✓ | ✓ |
+| **Public LOCOMO score** | 70.75% | 91.6% | 91.7% | 94.4% | 92.2% | not disclosed | ~75% |
+| **Production maturity** | early | mature | published | mature | mature | mature | mature, ICLR 2026 |
 
 Legend: ✓ shipped · ◐ partial · ✗ not present.
 
-Full per-system breakdown with reproducible citations: [`docs/comparison-honest.md`](docs/comparison-honest.md). If we're missing something a competitor does, it's logged there.
+Full per-system breakdown with reproducible citations: [`docs/comparison-honest.md`](docs/comparison-honest.md).
 
-**The question to ask:** is "flat memory + good retrieval" enough, or do you need **structured cognition + audit trail + observability**?
+**The honest read by competitor:**
 
-- **You're building production AI agents** → you need contradiction surfacing, provenance, supersession. The 91% systems don't have these.
-- **You're shipping in regulated industries** (finance, health, legal) → audit-grade observability isn't optional. EU AI Act Articles 12 + 13 require it. We're the only system that ships it as a first-class primitive.
-- **You want to know WHY the AI answered the way it did** → `explain_retrieval`, `fact_trajectory`, `provenance_tree`, `decision_lineage` are all one MCP call away.
-- **You need pure recall on a benchmark** → today, Mem0 / MemMachine score higher. Honestly. We're working on it — see the progress section below.
+- **Zep/Graphiti** is the closest comparable. They ship the temporal-graph substrate (bitemporal validity, episode provenance, contradiction handling) at production scale with a peer-reviewed paper, plus a 4-tool MCP server live since November 2025. **What we add on top:** the psychographic 7-domain decomposition, slope-based trajectory math, self-supervised confidence loop, behavioural pattern mining, entity auto-promotion, chat-tagging attribution, verifier second-pass, and 4 answer-shape modes — none of which they ship. We are newer, less battle-tested, and more opinionated.
+- **Mem0 / MemMachine / Synthius / ByteRover** are the LOCOMO leaders. They optimise for recall on static datasets. They don't ship the temporal substrate, the observability primitives, or the cognition stack. If your use case is pure recall, they win the benchmark; if it's structured cognition + audit trail, they don't have the substrate.
+- **Letta (MemGPT)** is the academic original. Agent framework integration is strong; the structured-cognition layer is not their focus.
+
+**The question to ask:**
+
+- **You need pure recall on a benchmark today** → Mem0 / MemMachine / Synthius / ByteRover score higher. We won't pretend otherwise.
+- **You need production-tested temporal knowledge graph today** → Zep/Graphiti is more mature and has the paper.
+- **You want an opinionated cognition stack** (7 domains, slope trajectories, confidence loop, behavioural patterns, entity graduation, chat-tagging, verifier, answer-shape routing) **on a self-hosted temporal foundation** → skyMem is the only system shipping that combination today. We're newer; the trade-off is depth vs maturity.
+- **You're shipping in regulated industries** → Zep + skyMem both have the substrate. skyMem adds richer observability primitives (decision lineage, fact trajectory, decay report) on top. Pick on operational maturity vs primitive depth — both are defensible.
+- **You want to know WHY the AI answered the way it did** → `explain_retrieval`, `fact_trajectory`, `provenance_tree`, `decision_lineage` are one MCP call away.
 
 ---
 
@@ -83,7 +98,7 @@ If your AI gives a customer the wrong refund amount, "the model hallucinated" is
 
 These aren't extras bolted on after — they're part of the data model. Every belief carries its provenance. Every supersession is logged. Every contradiction is detected and retained.
 
-EU AI Act Articles 12 + 13 will require this for "high-risk" AI systems by 2026. Most current memory systems would need a full rebuild to comply. skyMem is built for it from the ground up.
+**On regulatory readiness, honestly:** EU AI Act Articles 12 + 13 will require provenance + audit trail for "high-risk" AI systems. Zep/Graphiti ships the temporal-validity + episode-tracing substrate that covers the core of those requirements; we share that substrate. **What skyMem adds on top is richer primitives** — decision lineage, fact trajectory with slope analysis, decay reports — and exposes all eight as MCP tools an agent can call at runtime. Mem0 / MemMachine / Synthius / ByteRover don't ship the temporal substrate at all. The realistic positioning is "skyMem and Zep are the two systems built with this requirement in mind; skyMem is the more opinionated implementation," not "we're the only one."
 
 ### 4. Why bring-your-own-keys + self-hosted, not SaaS?
 
@@ -185,9 +200,13 @@ Three of those lifts shipped on the same calendar day (May 11 morning → evenin
 | cat=4 open-domain | 42.3% | 74.91% | +1.07 |
 | cat=5 adversarial | 22.5% | 92.15% | -0.42 |
 
-**T5 (in progress)** — temporal-proximity scoring for cat=2 (the biggest remaining headroom). cat=2 spot-test shows +7-12 pp lift on the target conv. Full bench data pending.
+**Where we are right now (May 14, 2026):** 70.75% is the stable public number. We attempted 7 mechanism sprints (T5, T6, T7a, T7b, T7c, T8, T8b) over May 9-14 trying to push higher. **None banked progress.** Four sprints were reverted after regressions; two were kept but never fully validated. The bench variance floor turned out to be larger than our spot-test discipline could resolve.
 
-For competitor comparison context: Synthius-Mem 94.4% · ByteRover 92.2% · MemMachine 91.7% · Mem0 91.6% · Memori 81.95%. **We're explicit that we're below them today** — the path from 70.75% to 82-85% is in [`docs/COGNITION-ROUTER.md`](docs/COGNITION-ROUTER.md), and the methodology behind each lift is in the receipts at [`docs/T3-RESULTS.md`](docs/T3-RESULTS.md), [`docs/T4e-RESULTS.md`](docs/T4e-RESULTS.md), and [`docs/T4f-RESULTS.md`](docs/T4f-RESULTS.md).
+Full candid record: [`docs/PHASE-A-B-POSTMORTEM.md`](docs/PHASE-A-B-POSTMORTEM.md). It documents every mechanism, why it failed, and what we'd need to know (variance measurement, cached replay) before attempting more LOCOMO mechanism work productively.
+
+**The strategic read:** LOCOMO is one benchmark. We're focused on building [Agent Drift Eval](#agent-drift-eval-our-benchmark) — the benchmark that measures what production AI agents actually break on — rather than grinding the last few percentage points on a static-recall benchmark we don't claim to lead.
+
+For competitor comparison context on LOCOMO: Synthius-Mem 94.4% · ByteRover 92.2% · MemMachine 91.7% · Mem0 91.6% · Memori 81.95% · Zep/Graphiti ~75.1% · skyMem 70.75%. **We're explicit that we're below them today on this specific benchmark** — and that the path forward isn't more prompt-tweaking sprints. The methodology behind each historical lift is in the receipts at [`docs/T3-RESULTS.md`](docs/T3-RESULTS.md), [`docs/T4e-RESULTS.md`](docs/T4e-RESULTS.md), [`docs/T4f-RESULTS.md`](docs/T4f-RESULTS.md), and [`docs/PHASE-A-B-POSTMORTEM.md`](docs/PHASE-A-B-POSTMORTEM.md).
 
 **Reproduce locally:**
 
@@ -195,24 +214,26 @@ For competitor comparison context: Synthius-Mem 94.4% · ByteRover 92.2% · MemM
 git clone https://github.com/HopiumLab/skymem-io.git
 cd skymem-io && cp .env.example .env  # add ANTHROPIC_API_KEY + COHERE_API_KEY
 ./install.sh
-docker exec -d sky-bridge bash /app/scripts/run-t3-fullstack.sh
+docker exec -d skymem bash /app/scripts/run-t3-fullstack.sh
 # After ~5.5h, summary lands in /app/bench/t3fs-<timestamp>-summary.json
 # Expected variance ±1pp.
 ```
 
-### Agent Drift Eval (our benchmark)
+### Agent Drift Eval (our benchmark — in development)
 
 LOCOMO measures recall on a static dataset. **Agent Drift Eval measures what production breaks** — multi-session decision continuity, contradiction resistance, stale-fact suppression, correction retention.
 
-Five scenarios (coding, support, sales, product, ops), six metrics + composite Drift Score, dual-judge harness (Claude Opus + GPT-4 Turbo), runner contract for skyMem and every public competitor on the same scoring.
+Five scenarios (coding, support, sales, product, ops), six metrics + composite Drift Score, dual-judge harness (Claude Opus + GPT-4 Turbo), runner contract that lets any memory system (skyMem, Mem0, Zep/Graphiti, Letta, Memori, plus a no-memory control) plug into the same scoring harness.
 
-**Spec status:** v0.1 drafted at [`docs/agent-drift-eval-spec.md`](docs/agent-drift-eval-spec.md). The eval lives in its own public repo — `github.com/HopiumLab/agent-drift-eval` — to keep the benchmark independent of the system under test.
+**Status (May 14, 2026):** v0.1 spec drafted and committed at [`docs/agent-drift-eval-spec.md`](docs/agent-drift-eval-spec.md) — 512 lines, 5 fully-designed scenarios, complete metric definitions, dual-judge prompt rubrics, harness architecture. **Implementation in progress.** First scored run target: Scenario A (coding agent — the wedge) with skyMem + Zep + Mem0 + no-memory control. Public repo will live at `github.com/HopiumLab/agent-drift-eval` and is gated on first scored run.
 
-The honesty contract:
+The honesty contract (non-negotiable):
 
-1. We publish our **weakest scenario first**.
-2. We run **every public competitor** on the same harness.
-3. The eval is **reproducible from a clean checkout**.
+1. We publish our **weakest scenario first.** Not the headline number.
+2. We run **every public competitor** on the same harness. Adapter code is in-repo and reviewable.
+3. The eval is **reproducible from a clean checkout.** Costs, latencies, raw transcripts, judge rationales all logged.
+
+If you want to follow the build or contribute scenarios / competitor adapters before the public flip, the spec is open and PRs are welcome on this repo against the spec doc.
 
 ---
 
@@ -295,7 +316,7 @@ Pairs with WhatsApp via Baileys. Personal-PA dogfood mode — proves the cogniti
 The LOCOMO public benchmark runner is included so you can verify the numbers on your install:
 
 ```bash
-docker exec sky-bridge bash /app/scripts/run-locomo-sequential.sh
+docker exec skymem bash /app/scripts/run-locomo-sequential.sh
 ```
 
 Writes per-conv result JSONs + an aggregate summary to `/app/bench/`.

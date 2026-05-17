@@ -17,7 +17,7 @@
 #   B2. Full 10-sample bench with persona + Cohere + nucleus
 #   B3. Chunked re-runs for conv-43+48 with persona+Cohere+nucleus if needed
 #
-# Usage: docker exec sky-bridge bash /app/scripts/run-finale-v2.sh
+# Usage: docker exec skymem bash /app/scripts/run-finale-v2.sh
 
 set -u
 RUN_TAG="finale-v2-$(date +%Y%m%d-%H%M%S)"

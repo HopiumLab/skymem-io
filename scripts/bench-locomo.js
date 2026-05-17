@@ -9,7 +9,7 @@
  * Methodology:
  *   1. For each conversation, ingest each session turn into Sky's graph
  *      with an isolated scope (chatJid="benchmark:locomo:<sample_id>") so
- *      it doesn't pollute the user's real graph and Phase 1 scope filter
+ *      it doesn't pollute Ross's real graph and Phase 1 scope filter
  *      naturally isolates retrieval.
  *   2. For each QA pair, run Sky's full retrieval pipeline (semantic dual-query
  *      + FTS + edge-walk + Cohere rerank) against that scope.
@@ -25,7 +25,7 @@
  *   5 = adversarial            (answer not in convo — should abstain)
  *
  * Usage:
- *   docker exec sky-bridge sh -c 'NEW_URL=$(...); export DATABASE_URL=...
+ *   docker exec skymem sh -c 'NEW_URL=$(...); export DATABASE_URL=...
  *     node /app/scripts/bench-locomo.js [--samples=N] [--questions-per=M]
  *     [--conv-id=conv-N]'
  *
@@ -163,7 +163,7 @@ function normaliseDate(raw) {
 
 /**
  * Make a benchmark scope for an isolated conversation. Phase 1 scope filter
- * isolates retrieval to this chatJid only — won't see the user's real data.
+ * isolates retrieval to this chatJid only — won't see Ross's real data.
  */
 function makeBenchScope(sampleId) {
   return {
@@ -533,33 +533,10 @@ async function retrieveContext(query, scope, category = null) {
   if (shape === 'list' && (category === 1 || category === 4)) {
     RERANK_TOPN = 25;
   }
-
-  // T7a (2026-05-13): MMR diversity selection for cat=4 non-list queries.
-  // Per docs/FAILURE-TAXONOMY-T4F.md, cat=4 has D+C+E ~equally distributed
-  // failure modes. T6 (RERANK_PROFILE 12→16) targeted C alone and failed
-  // its 3-conv spot-test (2/3 PASS = locked-protocol FAIL). T7a addresses
-  // the C bucket specifically: similarity-collapse where Cohere rerank's
-  // top-N includes 3-4 near-identical candidates, starving context of
-  // bridging facts.
-  //
-  // Mechanism: rerank to a WIDER pool (RERANK_TOPN * 1.5), then apply MMR
-  // to pick the final RERANK_TOPN that balances relevance against mutual
-  // diversity. Token-level Jaccard as the diversity metric (no extra LLM
-  // calls, deterministic).
-  //
-  // Gated: cat=4 AND non-list (list-shape uses T4b fan-out at TOPN=25).
-  // Other cats untouched.
-  const USE_MMR_FOR_CAT4 = (category === 4 && shape !== 'list');
-  const RERANK_FETCH = USE_MMR_FOR_CAT4 ? Math.min(candidatePool.length, Math.round(RERANK_TOPN * 1.5)) : RERANK_TOPN;
-  const MMR_LAMBDA = 0.5;
-
   let topNodes;
   if (rerank.isAvailable() && candidatePool.length > 0) {
     try {
-      const wideRerank = await rerank.rerank(query, candidatePool, { topN: RERANK_FETCH });
-      topNodes = USE_MMR_FOR_CAT4
-        ? selectWithMMR(wideRerank, RERANK_TOPN, MMR_LAMBDA)
-        : wideRerank;
+      topNodes = await rerank.rerank(query, candidatePool, { topN: RERANK_TOPN });
     } catch (_) {
       topNodes = candidatePool.sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, RERANK_TOPN);
     }
@@ -618,107 +595,6 @@ async function retrieveContext(query, scope, category = null) {
  *   - 'inference' — yes/no, opinion, "would X" / "is Y likely" / "what kind"
  *                   → reasoning-driven answer.
  */
-// ── T7a (2026-05-13): MMR diversity selection for cat=4 ──────────
-// Maximal Marginal Relevance — re-rank a wider candidate pool to balance
-// relevance against diversity, picking top-N candidates that are HIGH
-// relevance but LOW similarity to each other.
-//
-// MMR(q, D, lambda) = argmax_d in D [lambda * Sim1(q, d) - (1-lambda) * max_d'_in_selected Sim2(d, d')]
-//
-// We use Cohere rerank scores as Sim1 (relevance) and token-level Jaccard
-// as Sim2 (similarity). Pure additive — only invoked for cat=4 non-list
-// questions per docs/FAILURE-TAXONOMY-T4F.md analysis (cat=4 D+C+E split
-// equally; MMR addresses the C bucket = retrieval-miss-via-similarity-
-// collapse where rerank's top-N clusters semantically).
-//
-// lambda = 0.5 is the standard balance. Lower = more diverse, higher =
-// more relevance-faithful. We start at 0.5 and tune via spot-test.
-
-const MMR_TOKEN_RE = /\b[a-z0-9]{3,}\b/g;
-const MMR_STOP = new Set([
-  'the','and','but','why','what','how','when','where','who','this','that',
-  'with','from','have','has','had','just','like','will','would','could',
-  'should','about','than','they','their','there','then','some','all','any',
-  'for','was','were','are','his','her','him','she','its','you','your','too',
-  'been','being','does','did','done','only','one','two','more','most','many',
-  'not','can','said','say','says','told','tell','really','very','also',
-]);
-
-function mmrTokenize(text) {
-  if (!text || typeof text !== 'string') return new Set();
-  const toks = (text.toLowerCase().match(MMR_TOKEN_RE) || []).filter(t => !MMR_STOP.has(t));
-  return new Set(toks);
-}
-
-function mmrJaccard(setA, setB) {
-  if (setA.size === 0 || setB.size === 0) return 0;
-  let inter = 0;
-  for (const t of setA) if (setB.has(t)) inter++;
-  const union = setA.size + setB.size - inter;
-  return union > 0 ? inter / union : 0;
-}
-
-/**
- * Pick top-N candidates via MMR — high relevance, low mutual similarity.
- * Operates over a wider pool than the final top-N for headroom.
- *
- * @param {Array} candidates  — already sorted desc by rerank/relevance score
- * @param {number} n           — desired final count
- * @param {number} lambda      — 0.5 balanced; 0=pure diversity; 1=pure relevance
- * @returns {Array}            — n picked candidates in MMR order (highest-MMR first)
- */
-function selectWithMMR(candidates, n, lambda = 0.5) {
-  if (!candidates || candidates.length === 0) return [];
-  if (candidates.length <= n) return candidates;
-
-  // Precompute token sets per candidate (avoid re-tokenizing inside the loop)
-  const tokens = candidates.map(c => mmrTokenize(c.content || ''));
-  const relevanceOf = (i) => {
-    const c = candidates[i];
-    if (typeof c.rerankScore === 'number') return c.rerankScore;
-    if (typeof c.score === 'number') return c.score;
-    return 0;
-  };
-
-  const selected = [];
-  const selectedIndices = new Set();
-
-  // Step 1: pick the highest-relevance candidate
-  let firstIdx = 0;
-  let firstRel = relevanceOf(0);
-  for (let i = 1; i < candidates.length; i++) {
-    const r = relevanceOf(i);
-    if (r > firstRel) { firstRel = r; firstIdx = i; }
-  }
-  selected.push(candidates[firstIdx]);
-  selectedIndices.add(firstIdx);
-
-  // Steps 2..n: MMR scoring
-  while (selected.length < n) {
-    let bestIdx = -1;
-    let bestMmr = -Infinity;
-    for (let i = 0; i < candidates.length; i++) {
-      if (selectedIndices.has(i)) continue;
-      const rel = relevanceOf(i);
-      // Max Jaccard against already-selected
-      let maxSim = 0;
-      for (const j of selectedIndices) {
-        const sim = mmrJaccard(tokens[i], tokens[j]);
-        if (sim > maxSim) maxSim = sim;
-      }
-      const mmr = lambda * rel - (1 - lambda) * maxSim;
-      if (mmr > bestMmr) {
-        bestMmr = mmr;
-        bestIdx = i;
-      }
-    }
-    if (bestIdx === -1) break;
-    selected.push(candidates[bestIdx]);
-    selectedIndices.add(bestIdx);
-  }
-  return selected;
-}
-
 function classifyAnswerShape(question, category) {
   const q = (question || '').toLowerCase().trim();
 
@@ -1031,7 +907,7 @@ CONTENT RULES:
 - For dates: use the format closest to the transcript ("19 October 2023" / "Sept 13"); prefer the date the transcript shows.
 - For counts: just the number ("3" / "twenty-eight"); use digits unless the transcript spells it out.
 - For places: just the place name ("Sweden" / "Tokyo Tower").
-- For people: just the first name as speakers refer to them ("Person A" not "Person A, the airline contact").
+- For people: just the first name as speakers refer to them ("Marie" not "Marie Seco-Koppen, the airline contact").
 - For categorical answers ("what kind of art"): use the EXACT category label the transcript uses ("abstract art" not "abstract painting with vibrant colors").
 - DO NOT summarise multiple turns. DO NOT infer beyond the transcript.
 
@@ -1056,71 +932,8 @@ If the transcript names no relevant items, reply exactly: No information availab
 
 Conversation transcript:
 ${context}`;
-  } else if (category === 4) {
-    // T7b (2026-05-13): CAT=4 GROUNDED MODE.
-    //
-    // Per docs/FAILURE-TAXONOMY-T4F.md, cat=4's failure distribution is:
-    //   D = 60 (retrieved but LLM ignored evidence)  ← THIS PROMPT TARGETS
-    //   C = 52 (indexed but not retrieved — addressed by T7a MMR)
-    //   E = 49 (used but wrong answer style — addressed by T7c)
-    //
-    // The D bucket pattern: the right evidence IS in the context, but the
-    // LLM produces an answer that:
-    //   - Picks the wrong nearby fact (similar entity, wrong relationship)
-    //   - Synthesizes when it should be quoting
-    //   - Hedges into "No information available" when evidence IS present
-    //   - Echoes the question premise rather than the evidence
-    //
-    // T7b system prompt enforces GROUNDING — every claim must trace to
-    // specific evidence in the retrieved context. Few-shot examples show
-    // "evidence → answer" mapping concretely. Stacks additively with T7a
-    // MMR (which feeds it more diverse candidates).
-    systemPrompt = `You are answering an open-domain question grounded in a long-form conversation transcript.
-
-CRITICAL — GROUND EVERY CLAIM:
-Each fact in your answer must be directly supported by the CONVERSATION EVIDENCE below.
-If the evidence doesn't support a claim, OMIT it. Do not synthesize, infer, or use outside knowledge.
-The transcript IS the source of truth.
-
-ANSWER FORMAT:
-- Direct concise answer. 1-2 short sentences max for most questions; single phrase if possible.
-- Use the SAME nouns and phrasing the speakers used (don't paraphrase entities or actions).
-- NO preamble: never "Based on the transcript", "Looking at the conversation", "The transcript shows".
-- NO speculation or hedging beyond what evidence states.
-- NO markdown bullets, numbering, or bold.
-
-WHEN TO ANSWER vs ABSTAIN:
-- If the evidence DIRECTLY supports the answer: provide it concisely.
-- If the evidence partially supports an answer (related but not direct): state the supported part only.
-- If the evidence has NO bearing on the question subject: reply "No information available".
-- Do NOT abstain when the evidence is there but the answer would require minor paraphrase — paraphrase carefully and answer.
-
-YES examples:
-  Q: "What does Caroline do for work?"
-  Evidence: "[2023-04-15] Caroline: I just got promoted to senior counselor at the women's shelter."
-  ✓ Good answer: "senior counselor at a women's shelter"
-  ✗ Bad answer: "Based on the transcript, Caroline works as a senior counselor at a women's shelter."
-
-  Q: "Where did the family vacation last year?"
-  Evidence: "[2023-08-10] Andrew: We had such a great time in Maine, the kids loved the beach."
-  ✓ Good answer: "Maine"
-  ✗ Bad answer: "It seems they went somewhere nice last summer." (echoes question premise, ignores 'Maine')
-
-  Q: "What hobby does Melanie share with her daughter?"
-  Evidence: "[2023-09-22] Melanie: Sarah and I have been doing pottery class together every Saturday."
-  ✓ Good answer: "pottery"
-  ✗ Bad answer: "art and crafts" (paraphrase too generic — speaker said 'pottery')
-
-NO example (correctly abstaining):
-  Q: "What does Caroline think about politics?"
-  Evidence: turns about Caroline's pottery class, dog adoption, work promotion.
-  ✓ Good answer: "No information available"
-
-Conversation transcript:
-${context}`;
   } else {
     // INFERENCE MODE — yes/no, would-X, opinion, multi-step reasoning.
-    // Used by cat=5 (always 'inference' shape) and any other 'inference' fallback.
     systemPrompt = `You are answering an inference or yes/no question about a long-form conversation. Reason from what the speakers said.
 
 RULES:
@@ -1358,7 +1171,7 @@ Be lenient on style. Be strict on factual correctness.`;
 async function main() {
   if (!existsSync(DATASET_PATH)) {
     console.error(`[bench-locomo] Dataset not found at ${DATASET_PATH}`);
-    console.error('Run: docker exec sky-bridge curl -sLo /app/bench/locomo10.json https://raw.githubusercontent.com/snap-research/locomo/main/data/locomo10.json');
+    console.error('Run: docker exec skymem curl -sLo /app/bench/locomo10.json https://raw.githubusercontent.com/snap-research/locomo/main/data/locomo10.json');
     process.exit(1);
   }
 

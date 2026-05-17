@@ -11,7 +11,7 @@
 #   5. Cohere migration (re-embed all bench MemoryNodes)
 #   6. Bench v4: full 10-sample LOCOMO with persona+Cohere
 #
-# Usage: docker exec sky-bridge bash /app/scripts/run-finale.sh
+# Usage: docker exec skymem bash /app/scripts/run-finale.sh
 
 set -u
 RUN_TAG="finale-$(date +%Y%m%d-%H%M%S)"

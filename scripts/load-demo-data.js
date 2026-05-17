@@ -11,7 +11,7 @@
  *
  * Idempotent — running twice just refreshes the data.
  *
- * Usage: docker exec sky-bridge node /app/scripts/load-demo-data.js
+ * Usage: docker exec skymem node /app/scripts/load-demo-data.js
  */
 
 import prisma from '../sky/prisma-client.js';

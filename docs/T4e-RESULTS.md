@@ -174,7 +174,7 @@ git clone https://github.com/HopiumLab/skymem-io.git
 cd skymem-io
 cp .env.example .env  # add Anthropic + Cohere keys
 ./install.sh
-docker exec -d sky-bridge bash /app/scripts/run-t3-fullstack.sh
+docker exec -d skymem bash /app/scripts/run-t3-fullstack.sh
 ```
 
 After ~5.5 hours, results land in `/app/bench/t3fs-<timestamp>-summary.json`. Expected variance ±1pp.

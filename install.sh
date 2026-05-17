@@ -166,9 +166,9 @@ docker compose up -d
 sleep 5
 
 # Wait for healthy
-echo -n "→ Waiting for sky-bridge to be healthy"
+echo -n "→ Waiting for skymem to be healthy"
 for i in $(seq 1 60); do
-  if docker inspect sky-bridge --format '{{.State.Health.Status}}' 2>/dev/null | grep -q healthy; then
+  if docker inspect skymem --format '{{.State.Health.Status}}' 2>/dev/null | grep -q healthy; then
     echo " ✓"
     break
   fi
@@ -179,8 +179,8 @@ echo ""
 
 # ── Schema migration ───────────────────────────────────────────────────────
 echo "→ Applying schema..."
-docker exec sky-bridge sh -c 'cd /app && npx prisma db push --skip-generate --accept-data-loss' 2>&1 | tail -3
-docker exec sky-bridge sh -c 'cd /app && npx prisma generate' 2>&1 | tail -2
+docker exec skymem sh -c 'cd /app && npx prisma db push --skip-generate --accept-data-loss' 2>&1 | tail -3
+docker exec skymem sh -c 'cd /app && npx prisma generate' 2>&1 | tail -2
 echo ""
 
 # ── Mode-specific bootstrap ────────────────────────────────────────────────
@@ -194,7 +194,7 @@ case "$MODE" in
     echo "A QR code will print below in ~10 seconds."
     echo ""
     echo "Watch the live log with:"
-    echo "  docker logs -f sky-bridge"
+    echo "  docker logs -f skymem"
     echo ""
     echo "Once paired, every message you send Sky gets ingested + extracted."
     echo "First persona facts will land in ~5 min."
@@ -205,7 +205,7 @@ case "$MODE" in
     echo "==========================================="
     echo ""
     echo "→ Loading sample data..."
-    docker exec sky-bridge sh -c 'export DATABASE_URL=$(echo "$DATABASE_URL" | sed -e "s|@localhost:|@host.docker.internal:|g") && node /app/scripts/load-demo-data.js' 2>&1 | tail -10
+    docker exec skymem sh -c 'export DATABASE_URL=$(echo "$DATABASE_URL" | sed -e "s|@localhost:|@host.docker.internal:|g") && node /app/scripts/load-demo-data.js' 2>&1 | tail -10
     echo ""
     echo "Demo ready. Try chatting at:"
     echo "  http://localhost:3002/"
@@ -216,7 +216,7 @@ case "$MODE" in
     echo "==========================================="
     echo ""
     echo "→ Ingesting project at $PROJECT_ROOT..."
-    docker exec sky-bridge sh -c "export DATABASE_URL=\$(echo \"\$DATABASE_URL\" | sed -e 's|@localhost:|@host.docker.internal:|g') && node /app/scripts/ingest-project.js --root=$PROJECT_ROOT" 2>&1 | tail -15
+    docker exec skymem sh -c "export DATABASE_URL=\$(echo \"\$DATABASE_URL\" | sed -e 's|@localhost:|@host.docker.internal:|g') && node /app/scripts/ingest-project.js --root=$PROJECT_ROOT" 2>&1 | tail -15
     echo ""
     echo "Project ingested. Configure your AI tool (Claude Code / Cursor) to use the"
     echo "skyMem MCP server at http://localhost:3002/mcp"
@@ -229,8 +229,8 @@ echo "  Install complete"
 echo "==========================================="
 echo ""
 echo "  Dashboard: http://localhost:3002/"
-echo "  Logs:      docker logs -f sky-bridge"
-echo "  Bench:     docker exec sky-bridge bash /app/scripts/run-locomo-sequential.sh"
+echo "  Logs:      docker logs -f skymem"
+echo "  Bench:     docker exec skymem bash /app/scripts/run-locomo-sequential.sh"
 echo "  Stop:      docker compose down"
 echo ""
 echo "Read SKY-REBUILD.md for the architecture deep-dive."

@@ -18,7 +18,7 @@
  *   - Rate-limited so we don't hammer the API (default 5 RPS)
  *
  * Usage:
- *   docker exec sky-bridge sh -c '
+ *   docker exec skymem sh -c '
  *     export SKY_EMBED_PROVIDER=cohere
  *     export DATABASE_URL="$(echo "$DATABASE_URL" | sed -e "s|@localhost:|@host.docker.internal:|g")"
  *     node /app/scripts/reembed.js [--limit=N] [--source-type=T] [--dry-run] [--rps=R]

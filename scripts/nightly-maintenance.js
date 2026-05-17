@@ -15,10 +15,10 @@
  * Each job is wrapped in try/catch — one failure doesn't kill the chain.
  *
  * Usage:
- *   docker exec sky-bridge node /app/scripts/nightly-maintenance.js
+ *   docker exec skymem node /app/scripts/nightly-maintenance.js
  *
  * Wire to host crontab:
- *   0 3 * * * docker exec sky-bridge node /app/scripts/nightly-maintenance.js >> /var/log/sky-nightly.log 2>&1
+ *   0 3 * * * docker exec skymem node /app/scripts/nightly-maintenance.js >> /var/log/sky-nightly.log 2>&1
  */
 
 import prisma from '../sky/prisma-client.js';

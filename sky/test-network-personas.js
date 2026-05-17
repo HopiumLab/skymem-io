@@ -10,7 +10,7 @@
 //   3. autoTagOneToOneChats walks 1:1 chats and finds tag-able ones
 //
 // Run via:
-//   docker exec sky-bridge sh -c '
+//   docker exec skymem sh -c '
 //     export DATABASE_URL=$(echo "$DATABASE_URL" | sed -e "s|@localhost:|@host.docker.internal:|g")
 //     node /app/sky/test-network-personas.js [--promote-one] [--auto-tag]
 //   '

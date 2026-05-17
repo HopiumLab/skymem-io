@@ -21,7 +21,7 @@
  *   5. Print live progress + final stats.
  *
  * Run via:
- *   docker exec sky-bridge sh -c '
+ *   docker exec skymem sh -c '
  *     export DATABASE_URL="$(echo "$DATABASE_URL" | sed -e "s|@localhost:|@host.docker.internal:|g")"
  *     node /app/scripts/bootstrap-persona.js [--limit=N] [--dry-run] [--batch-size=25] [--min-weight=0.25]
  *   '

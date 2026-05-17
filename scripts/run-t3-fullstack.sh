@@ -16,7 +16,7 @@
 # All 10 convs chunked at 50 questions per process (smaller than B2's 60
 # because verifier + reformulation add ~30% latency per question).
 #
-# Usage: docker exec -d sky-bridge bash /app/scripts/run-t3-fullstack.sh
+# Usage: docker exec -d skymem bash /app/scripts/run-t3-fullstack.sh
 #
 # Note: kick AFTER B2 chunked-fullstack finishes — they'd compete for memory
 # and API rate limit otherwise. Use the wait-for-b2 wrapper if needed.

@@ -621,7 +621,7 @@ Same IP, four markets.
 
 - LOCOMO (snap-research): 1986 QA pairs, 10 conversations, 5 categories
 - skyMem full stack: targeting 75-90% (in-flight measurement)
-- Live benchmark runner included in the repo: `docker exec sky-bridge bash /app/scripts/run-locomo-sequential.sh`
+- Live benchmark runner included in the repo: `docker exec skymem bash /app/scripts/run-locomo-sequential.sh`
 
 ### Live demo
 
@@ -703,5 +703,5 @@ For any business problem where memory has to be CONSISTENT across days/weeks/mon
 
 **Contact:** you@example.com
 **Repo:** github.com/<repo>/skymem (Stage 1, Elastic License v2)
-**Bench:** docker exec sky-bridge bash /app/scripts/run-locomo-sequential.sh
+**Bench:** docker exec skymem bash /app/scripts/run-locomo-sequential.sh
 **MCP:** http://localhost:3003/mcp (Claude Code / Cursor / agentic frameworks)

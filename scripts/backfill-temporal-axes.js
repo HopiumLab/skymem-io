@@ -15,7 +15,7 @@
  * Resume state file means it's interruptible.
  *
  * Usage:
- *   docker exec sky-bridge sh -c '
+ *   docker exec skymem sh -c '
  *     export DATABASE_URL=$(echo "$DATABASE_URL" | sed -e "s|@localhost:|@host.docker.internal:|g")
  *     node /app/scripts/backfill-temporal-axes.js [--limit=N] [--min-weight=W]
  *   '

@@ -19,7 +19,7 @@
 # Pattern matches scripts/run-t3-fullstack.sh — same chunk size, heap,
 # DB rewrite, env setup. Differs only in the flag combinations.
 #
-# Usage: docker exec -d sky-bridge bash /app/scripts/run-ablation.sh [conv-id]
+# Usage: docker exec -d skymem bash /app/scripts/run-ablation.sh [conv-id]
 #
 # Default conv-id: conv-43. Override on the command line:
 #   bash scripts/run-ablation.sh conv-50

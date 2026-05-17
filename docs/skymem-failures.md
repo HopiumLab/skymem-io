@@ -115,8 +115,8 @@ What looked like two separate incidents traced back to 11 interacting bugs — m
 |---|---|
 | **Class** | log hygiene |
 | **Date** | 2026-05-10 |
-| **Symptom** | sky-server logs flood with 163 `[ProjectManager] WARNING: Path not found for repo X` warnings on every restart — drowning real errors in noise |
-| **Root cause** | Repo paths in the DB are stored as Windows host paths (`C:/Users/ross/Desktop/Projects/X`), but sky-server runs inside a Linux container where the host Projects dir is bind-mounted at `/projects`. `existsSync('C:/Users/...')` is always false inside the container |
+| **Symptom** | skymem logs flood with 163 `[ProjectManager] WARNING: Path not found for repo X` warnings on every restart — drowning real errors in noise |
+| **Root cause** | Repo paths in the DB are stored as Windows host paths (`C:/Users/ross/Desktop/Projects/X`), but skymem runs inside a Linux container where the host Projects dir is bind-mounted at `/projects`. `existsSync('C:/Users/...')` is always false inside the container |
 | **Fix** | New `resolveRepoPath()` helper translates Windows host paths to container mount paths (`/projects/X`) before the existence check. Per-repo warnings collapsed into a single summary line listing the count of genuinely-missing paths (if any) |
 | **Status** | fixed |
 | **Commit** | `91cd8f9`, `2812e87` — `server/project-manager.js` |
@@ -202,7 +202,7 @@ Bug E was "the Tier 5 audit-grade pitch was fiction in production for two days."
 
 Implicated bugs: **E** (Tier 5 schema), and historically a class of "I added the model but forgot to migrate" risks.
 
-### Rule 3 — never restart sky-bridge while T1 bench runs
+### Rule 3 — never restart skymem while T1 bench runs
 
 A self-inflicted restart at 20:26 (to pick up tool wiring changes) killed an in-flight bench chunk and forced a re-kick. **Engine changes go in via a planned restart window OR after the bench completes — never opportunistically.**
 

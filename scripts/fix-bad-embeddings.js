@@ -21,7 +21,7 @@
  *
  * Cost: ~4 Cohere embed calls × $0.0001 = negligible.
  *
- * Usage: docker exec sky-bridge node /app/scripts/fix-bad-embeddings.js
+ * Usage: docker exec skymem node /app/scripts/fix-bad-embeddings.js
  */
 
 import prisma from '../sky/prisma-client.js';

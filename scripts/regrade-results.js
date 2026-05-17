@@ -9,7 +9,7 @@
  * from grader improvements without re-running the bench.
  *
  * Usage:
- *   docker exec sky-bridge node /app/scripts/regrade-results.js [glob]
+ *   docker exec skymem node /app/scripts/regrade-results.js [glob]
  *   default glob: /app/bench/results-locomo-*.json
  */
 

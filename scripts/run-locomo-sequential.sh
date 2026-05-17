@@ -4,7 +4,7 @@
 # --samples=10 invocation.
 #
 # Usage:
-#   docker exec sky-bridge bash /app/scripts/run-locomo-sequential.sh [run-tag]
+#   docker exec skymem bash /app/scripts/run-locomo-sequential.sh [run-tag]
 #
 # Writes per-conv result JSON to /app/bench/results-locomo-*.json (already
 # done by bench-locomo.js) plus a per-run log at

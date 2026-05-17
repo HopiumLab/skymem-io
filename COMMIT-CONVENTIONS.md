@@ -76,7 +76,7 @@ perf(dashboard): render only visible nodes (50k → 8k DOM cap)
 docs(t5): publish results doc — 70.49% net regression analysis
 revert(bench/t5): roll back temporal-proximity boost (didn't earn keep)
 release: v0.4 — 70.75% LOCOMO + cognition router per-cat profiles
-chore(docker): add ./skills volume mount to sky-server
+chore(docker): add ./skills volume mount to skymem
 bench(t6): cat=4 RERANK_PROFILE 12 → 16
 ```
 
@@ -195,7 +195,7 @@ Release notes should cover:
 
 ## When NOT to commit
 
-- **Don't commit on bench-running.** If a full bench is mid-flight in `sky-bridge`, defer commits that touch the bench code or shared paths.
+- **Don't commit on bench-running.** If a full bench is mid-flight in `skymem`, defer commits that touch the bench code or shared paths.
 - **Don't squash sprint history.** Each T-sprint result is its own commit so the bench retrospective stays readable. (Internal feature branches CAN squash before merge — public branches don't.)
 - **Don't `git commit --amend` after pushing.** Force-push rewrites history and breaks anyone who pulled.
 

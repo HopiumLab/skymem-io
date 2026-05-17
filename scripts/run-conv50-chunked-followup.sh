@@ -4,7 +4,7 @@
 # then runs conv-50 chunked while the orchestrator is in B1 (Cohere migration,
 # low memory).
 #
-# Usage: docker exec sky-bridge bash /app/scripts/run-conv50-chunked-followup.sh
+# Usage: docker exec skymem bash /app/scripts/run-conv50-chunked-followup.sh
 
 set -u
 LOG="/app/bench/conv50-followup.log"

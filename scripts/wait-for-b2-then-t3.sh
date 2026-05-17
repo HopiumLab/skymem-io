@@ -4,7 +4,7 @@
 # headlines #2 (Tier 1) and #3 (Tier 1+2+3) landed.
 #
 # Usage:
-#   docker exec -d sky-bridge bash /app/scripts/wait-for-b2-then-t3.sh
+#   docker exec -d skymem bash /app/scripts/wait-for-b2-then-t3.sh
 
 set -u
 LOG="/app/bench/wait-then-t3.log"

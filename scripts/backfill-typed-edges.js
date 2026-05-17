@@ -16,7 +16,7 @@
  * likely). Skip noise types (log, system, raw chat-buffer).
  *
  * Usage:
- *   docker exec sky-bridge sh -c '
+ *   docker exec skymem sh -c '
  *     export DATABASE_URL=$(echo "$DATABASE_URL" | sed -e "s|@localhost:|@host.docker.internal:|g")
  *     node /app/scripts/backfill-typed-edges.js [--limit=N] [--min-weight=W] [--dry-run]
  *   '

@@ -10,7 +10,7 @@
  *   - No DB writes happen (dryRun=true)
  *
  * Run via:
- *   docker exec -it sky-bridge node /app/sky/test-persona-extractor.js
+ *   docker exec -it skymem node /app/sky/test-persona-extractor.js
  */
 
 import prisma from './prisma-client.js';

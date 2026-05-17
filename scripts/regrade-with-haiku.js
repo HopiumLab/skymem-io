@@ -17,7 +17,7 @@
  * source file, and prints the aggregate before/after.
  *
  * Usage:
- *   docker exec sky-bridge node /app/scripts/regrade-with-haiku.js
+ *   docker exec skymem node /app/scripts/regrade-with-haiku.js
  */
 
 import { readFileSync, writeFileSync, readdirSync } from 'fs';

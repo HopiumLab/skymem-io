@@ -203,7 +203,7 @@ cp .env.example .env
 # Edit .env with your Anthropic + Cohere keys
 ./install.sh                     # builds containers, runs migrations
 npm run fetch:locomo             # pulls LOCOMO public dataset
-docker exec -d sky-bridge bash /app/scripts/run-t3-fullstack.sh
+docker exec -d skymem bash /app/scripts/run-t3-fullstack.sh
 ```
 
 The run takes ~2-4 hours on a typical workstation (varies by Anthropic + Cohere latency). Results land in `/app/bench/t3fs-<timestamp>-summary.json`.

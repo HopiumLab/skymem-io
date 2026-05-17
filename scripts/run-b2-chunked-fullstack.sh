@@ -14,7 +14,7 @@
 #   • Cat=2 temporal arithmetic answer mode
 #   • Lenient Haiku grader
 #
-# Usage: docker exec sky-bridge bash /app/scripts/run-b2-chunked-fullstack.sh
+# Usage: docker exec skymem bash /app/scripts/run-b2-chunked-fullstack.sh
 
 set -u
 RUN_TAG="b2fs-$(date +%Y%m%d-%H%M%S)"
