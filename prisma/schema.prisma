@@ -625,7 +625,7 @@ model Reminder {
 
 // NudgeCandidate — output of the Sentinel detection layer.
 //
-// Detectors (sky/detectors/*.js) run periodically in sky-workers and emit
+// Detectors (sky/detectors/*.js) run periodically in the skymem container and emit
 // candidates: things Sky has noticed that the user might want to know about.
 // They go through a delivery filter (quiet hours, daily cap, mute, snooze
 // memory) and either:
