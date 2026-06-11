@@ -8,7 +8,7 @@
     "bench": "bash scripts/run-locomo-sequential.sh",
     "demo": "node scripts/load-demo-data.js",
     "mcp": "node sky/mcp-server.js",
-    "nightly": "node scripts/nightly-maintenance.js",
+    "nightly": "node scripts/nightly-maintenance.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.0",
