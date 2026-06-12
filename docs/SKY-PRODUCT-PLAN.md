@@ -39,6 +39,48 @@ This split solves the three hardest problems at once:
 The site already sells this shape by accident: waitlist (hosted, her number) and
 "run your own" (embedded, your number). Keep it.
 
+## Hard requirement: every Sky gets her own number, reliably
+
+Ross's call, and it's right: one shared Sky number is a chatbot; a dedicated number per
+user is a person in your contacts. That requirement plus "must be reliable" eliminates
+Baileys for hosted and picks the architecture:
+
+**WhatsApp Business Cloud API, one number per user, provisioned through a BSP
+(360dialog / Twilio / Vonage).**
+
+Why this is the only choice that satisfies both constraints:
+
+- **Reliability is structural, not managed.** Cloud API is webhooks in, HTTPS out.
+  There is no Baileys session to drop, no QR re-pairing, no companion-device state to
+  babysit, and no ban risk. The single biggest operational failure mode of the dogfood
+  simply does not exist on this path.
+- **Per-user numbers are a supported pattern.** BSPs provision numbers via API
+  (roughly $2-6/number/month). One WABA holds up to 20 numbers; a business portfolio
+  holds multiple WABAs; BSPs automate the sprawl. Hundreds of Skys is paperwork, not R&D.
+- **The economics hold.** User-initiated service conversations are free on Cloud API,
+  and a PA is almost entirely user-initiated traffic. The morning brief is one
+  business-initiated utility template per day, roughly $1-2/user/month. Add the number
+  fee and hosted Sky's channel cost is ~$3-8/user/month on top of LLM costs. $25-49 still works.
+- **Messaging limits start at 250 business-initiated/day per number.** Sky sends one
+  brief a day. Headroom is absurd.
+
+What the official path cannot do, said plainly:
+
+| Limitation | Reality | Product answer |
+|---|---|---|
+| No cold outreach. Sky's number cannot message Manuel; he never opted in. | Meta policy, non-negotiable. | **Draft-and-relay:** Sky writes the nudge, sends YOU a wa.me deep link with the text prefilled, you tap once and it goes from your number. Arguably better: the nudge comes from you, as it should, and the human stays in the loop. |
+| No group chats (Cloud API). | Sky can't sit in the family or team group. | Self-host embedded Sky can (Baileys joins groups). Hosted Sky is 1:1 by design for now; revisit if/when Meta ships group support for Cloud API. |
+| Business-account badge on her profile. | Sky shows as a business contact, not a personal one. | Name "Sky", warm profile photo, and nobody cares after the first message. |
+
+Baileys remains exactly where it belongs: the self-host path, where the user owns the
+number, the risk, and the superpowers (groups, full outreach, sees-everything memory).
+
+**Build item this creates:** a thin channel abstraction in the stack
+(`channels/whatsapp-cloud.js` next to the existing Baileys path: webhook receiver in,
+Graph API send out, template registry for the brief). The memory engine never knows
+the difference. Provisioning pipeline: BSP API → number → webhook URL → pod → Stripe
+metadata, all one script.
+
 ## What exists vs what "product" requires
 
 **Exists and works (verified in this repo):** WhatsApp ingest, 13-layer memory, persona,
@@ -59,9 +101,10 @@ trajectories, network promotion, nightly maintenance, briefs as dogfood wiring, 
 ## The 90 days (same for strategy A and B)
 
 **Weeks 1-2, cohort zero (n=10, concierge).**
-Hand-picked from the waitlist. Hosted companion Sky on a WhatsApp Business number
-(or Telegram if WABA approval drags; it is days vs weeks). Briefs + memory Q&A only.
-Ross watches every conversation (with consent). $25/month from day one; free users lie.
+Hand-picked from the waitlist. Ten BSP-provisioned numbers, one Sky each, briefs +
+memory Q&A only. Business verification and BSP onboarding start on day 1 (it is the
+long pole, typically 1-3 weeks; nothing else blocks on it). Ross watches every
+conversation (with consent). $25/month from day one; free users lie.
 
 **Weeks 3-6, self-serve mechanics (n=50).**
 Stripe, automated provisioning (pod per user), calendar read via Google OAuth,
@@ -97,8 +140,8 @@ general-purpose assistants that were nobody's assistant in particular.
 ## Decisions only Ross can make
 
 1. **A or B** at day 90, and what it means for the builders roadmap in this repo.
-2. **Channel order:** wait for WhatsApp Business API approval, or launch cohort zero on
-   Telegram in week 1 and accept the "she lives in WhatsApp" copy needs a footnote for a while.
+2. **Groups:** hosted Sky is 1:1-only on the official API today. Is that acceptable for
+   launch (recommended), or is group presence so core that self-host stays the only full Sky?
 3. **Price:** $25 founder-cohort pricing vs higher ($39-49) to filter for serious users
    and fund the concierge time.
 4. **The name on the door:** does hosted Sky bill as Real Talk Holdings or does Sky become
