@@ -68,7 +68,7 @@ What the official path cannot do, said plainly:
 
 | Limitation | Reality | Product answer |
 |---|---|---|
-| No cold outreach. Sky's number cannot message Manuel; he never opted in. | Meta policy, non-negotiable. | **Draft-and-relay:** Sky writes the nudge, sends YOU a wa.me deep link with the text prefilled, you tap once and it goes from your number. Arguably better: the nudge comes from you, as it should, and the human stays in the loop. |
+| No cold outreach on WhatsApp. Sky's number cannot message Manuel; he never opted in. | Meta policy, non-negotiable. | Two answers. **Email is the real nudge channel:** connected via Gmail/Outlook OAuth, Sky sends from the user's own address (chasers, follow-ups, intros), confirmation-first, then auto-send per-contact once trusted. **WhatsApp gets draft-and-relay:** Sky preps the message as a wa.me deep link, the user taps once and it goes from their number. The constraint only ever applied to one channel. |
 | No group chats (Cloud API). | Sky can't sit in the family or team group. | Self-host embedded Sky can (Baileys joins groups). Hosted Sky is 1:1 by design for now; revisit if/when Meta ships group support for Cloud API. |
 | Business-account badge on her profile. | Sky shows as a business contact, not a personal one. | Name "Sky", warm profile photo, and nobody cares after the first message. |
 
@@ -120,7 +120,7 @@ trajectories, network promotion, nightly maintenance, briefs as dogfood wiring, 
 
 | Gap | Needed for | Build note |
 |---|---|---|
-| Action layer (calendar, email drafts, send-with-confirm) | The site's "she books meetings" claims | Google OAuth (calendar read first), Gmail draft-only second, outbound send always confirmation-first. Sequence it; do not block launch on it. Memory + briefs alone are already a product. |
+| Action layer (calendar, email send, nudges) | The site's "she does things" claims | Google OAuth: calendar read first, then **email send-as-user** (the workhorse: chasers, follow-ups, intros from the user's real address). Confirmation-first by default; per-contact auto-send once the user grants it. WhatsApp third parties get draft-and-relay. Sequence it; memory + briefs launch first. |
 | WhatsApp Business API integration | Hosted channel | 24h session windows fit companion mode (user texts first). Morning brief needs one approved template ("Your morning brief is ready, reply to open"), which is exactly what templates are for. |
 | Fleet of pods | Cohort > 1 | One isolated stack per Sky (see "One Sky, one pod"). Slim profile first (drop local @xenova embeddings for hosted Cohere, target 1-2 GB/user). Multi-tenant is permanently off the table by design. |
 | Metering + caps | Not going broke | Per-user token budget, Haiku for extraction, alerting at 80%. BYOK tier for power users (their keys, lower price). |
