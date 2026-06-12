@@ -81,6 +81,36 @@ Graph API send out, template registry for the brief). The memory engine never kn
 the difference. Provisioning pipeline: BSP API → number → webhook URL → pod → Stripe
 metadata, all one script.
 
+## One Sky, one pod: own database, own graph, own number
+
+Ross's second hard requirement, and it sets the hosting model permanently: every Sky is
+a fully isolated unit. One Postgres, one memory graph, one number, one container stack
+per user. No shared database, no tenant columns, ever.
+
+Why this is the right call beyond the principle:
+
+- **It is what the stack already is.** The compose stack is the unit of deployment today.
+  Productizing means replicating it, not re-architecting it.
+- **Blast radius of one.** A bug, breach, or corrupt graph touches one user. For a product
+  whose whole pitch is trust, this is worth real money.
+- **GDPR becomes physics.** Delete = destroy the pod and its volume. Export = hand over
+  the volume. No "we deleted your rows, trust us."
+- **"Take her home" becomes a feature.** A hosted Sky's pod IS the self-host stack. Any
+  customer can download their volume and run their exact Sky, same memories, on their own
+  machine. Hosted-to-sovereign portability with zero lock-in is a product feature no
+  assistant company can copy without rebuilding from scratch, and it is the entire brand
+  in one button.
+
+The economics work because pods sleep. On machine-per-pod infra (Fly machines or
+equivalent), a Sky wakes on the webhook when a message arrives (~300ms), runs her nightly
+sweep and morning brief on schedule, and costs ~storage while idle. With the slim profile
+(hosted Cohere embeddings instead of local models), target ~1-2 GB RAM hot and a few GB
+of disk per Sky: roughly $3-7/user/month infra at realistic duty cycles.
+
+Fleet operations this creates (build once, amortize forever): versioned images with a
+rolling-update script, per-pod volume snapshots, a fleet health dashboard (last webhook,
+last brief, queue depth per Sky), and missed-brief alerting.
+
 ## What exists vs what "product" requires
 
 **Exists and works (verified in this repo):** WhatsApp ingest, 13-layer memory, persona,
@@ -92,7 +122,7 @@ trajectories, network promotion, nightly maintenance, briefs as dogfood wiring, 
 |---|---|---|
 | Action layer (calendar, email drafts, send-with-confirm) | The site's "she books meetings" claims | Google OAuth (calendar read first), Gmail draft-only second, outbound send always confirmation-first. Sequence it; do not block launch on it. Memory + briefs alone are already a product. |
 | WhatsApp Business API integration | Hosted channel | 24h session windows fit companion mode (user texts first). Morning brief needs one approved template ("Your morning brief is ready, reply to open"), which is exactly what templates are for. |
-| Multi-user hosting | Cohort > 1 | Pod-per-user: the existing compose stack is the unit. Slim profile first (drop local @xenova embeddings for hosted Cohere, target <2 GB/user). True multi-tenant is a month-6 problem, not month-1. |
+| Fleet of pods | Cohort > 1 | One isolated stack per Sky (see "One Sky, one pod"). Slim profile first (drop local @xenova embeddings for hosted Cohere, target 1-2 GB/user). Multi-tenant is permanently off the table by design. |
 | Metering + caps | Not going broke | Per-user token budget, Haiku for extraction, alerting at 80%. BYOK tier for power users (their keys, lower price). |
 | Billing | Revenue | Stripe, monthly, founder price $25 to start. No free tier; the QR self-host path IS the free tier. |
 | Trust surface | Anyone non-technical | Privacy policy, GDPR export + delete as one command each (audit_log and the graph make this honest), "we never train on your data", confirmation-first outbound, per-contact allowlist. |
